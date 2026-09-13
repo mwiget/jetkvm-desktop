@@ -215,7 +215,7 @@ func (a *App) beginTextFieldPointer(id string, fieldRect ui.Rect, shift bool) {
 		DisplayValue: binding.DisplayValue,
 		TextSize:     binding.TextSize,
 	})
-	x, _ := ebiten.CursorPosition()
+	x, _ := cursorPosition()
 	a.textInput.BeginPointer(*a.uiTextBinding(), fieldRect, float64(x), shift)
 }
 
@@ -232,8 +232,8 @@ func (a *App) updateTextSelectionDrag() {
 	if !ok {
 		return
 	}
-	x, _ := ebiten.CursorPosition()
-	a.textInput.UpdateDrag(*binding, fieldRect, float64(x), ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft))
+	x, _ := cursorPosition()
+	a.textInput.UpdateDrag(*binding, fieldRect, float64(x), isMouseButtonPressed(ebiten.MouseButtonLeft))
 }
 
 func (a *App) syncFocusedTextInput() bool {

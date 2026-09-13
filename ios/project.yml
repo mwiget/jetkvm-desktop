@@ -24,9 +24,15 @@ targets:
       - sdk: GameController.framework
       # Go's cgo DNS resolver.
       - sdk: libresolv.tbd
+      # H.264 decoding (pkg/video/codec_videotoolbox.go).
+      - sdk: VideoToolbox.framework
+      - sdk: CoreMedia.framework
+      - sdk: CoreVideo.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.mwiget.jetkvm
+        # Must differ from the Go framework's "Jetkvm" module beyond letter case.
+        PRODUCT_MODULE_NAME: JetKVMApp
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
     info:
@@ -35,6 +41,8 @@ targets:
         CFBundleDisplayName: JetKVM
         UILaunchScreen: {}
         UIRequiresFullScreen: false
+        # Deliver trackpad and mouse clicks as indirect pointer touches with button masks.
+        UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown

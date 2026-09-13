@@ -7,6 +7,8 @@ package jetkvm
 import (
 	"context"
 	"os"
+	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -17,6 +19,13 @@ import (
 )
 
 func init() {
+	// iOS discards stderr unless launched with `simctl launch --console`. Keep
+	// logs and Go panics in the app's temporary directory instead, where they
+	// can be pulled from the app container.
+	if logFile, err := os.Create(filepath.Join(os.TempDir(), "jetkvm.log")); err == nil {
+		_ = syscall.Dup2(int(logFile.Fd()), 2)
+	}
+
 	// There is no command line on iPadOS. JETKVM_URL, JETKVM_PASSWORD and
 	// JETKVM_DESKTOP_LOG_LEVEL can be set from the Xcode scheme, or with
 	// SIMCTL_CHILD_-prefixed variables for `xcrun simctl launch`.
@@ -36,5 +45,26 @@ func init() {
 	mobile.SetGame(clientApp)
 }
 
-// Dummy exists so gobind has an exported symbol to generate bindings for.
-func Dummy() {}
+// The functions below are called from the Swift host on the main thread.
+// Button masks: bit 0 primary, bit 1 secondary, bit 2 middle, bit 3 back, bit 4 forward.
+
+// PointerMoved reports an absolute pointer position in view points.
+func PointerMoved(x, y float64) { app.HostPointerMoved(x, y) }
+
+// PointerMovedBy reports relative motion while the pointer is locked.
+func PointerMovedBy(dx, dy float64) { app.HostPointerMovedBy(dx, dy) }
+
+// PointerButtons reports the full set of currently pressed buttons.
+func PointerButtons(buttons int) { app.HostPointerButtons(buttons) }
+
+// PointerScrolled reports wheel motion in wheel units (positive y scrolls up).
+func PointerScrolled(dx, dy float64) { app.HostPointerScrolled(dx, dy) }
+
+// PointerLockRequested reports whether relative mouse mode wants the pointer locked.
+func PointerLockRequested() bool { return app.HostPointerLockRequested() }
+
+// PointerHidden reports whether the pointer should be hidden over the view.
+func PointerHidden() bool { return app.HostPointerHidden() }
+
+// SetDarkMode reports the system appearance.
+func SetDarkMode(dark bool) { app.HostSetDarkMode(dark) }

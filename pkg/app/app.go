@@ -449,6 +449,7 @@ func (a *App) shouldRunDiscovery() bool {
 }
 
 func (a *App) Update() error {
+	beginPointerFrame()
 	a.syncDiscoveryLifecycle()
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		if a.serialConsoleOpen {
@@ -509,11 +510,11 @@ func (a *App) Update() error {
 }
 
 func (a *App) syncUIPointer() {
-	x, y := ebiten.CursorPosition()
+	x, y := cursorPosition()
 	point := ui.Point{X: float64(x), Y: float64(y)}
-	pressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-	justPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	justReleased := inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
+	pressed := isMouseButtonPressed(ebiten.MouseButtonLeft)
+	justPressed := isMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	justReleased := isMouseButtonJustReleased(ebiten.MouseButtonLeft)
 	if !pressed && !justPressed && !justReleased {
 		return
 	}
@@ -711,9 +712,9 @@ func (a *App) syncMouse() {
 	log := logging.Subsystem("app")
 	snapshot := a.ctrl.Snapshot()
 	now := time.Now()
-	x, y := ebiten.CursorPosition()
+	x, y := cursorPosition()
 	windowX, windowY, windowPositionKnown := currentWindowPosition()
-	buttons := currentMouseButtons(ebiten.IsMouseButtonPressed)
+	buttons := currentMouseButtons(isMouseButtonPressed)
 	if a.settingsOpen || a.pasteOpen || a.mediaOpen || a.serialConsoleOpen || snapshot.Phase != session.PhaseConnected {
 		if buttons != a.lastButtons {
 			log.Trace().
@@ -912,7 +913,7 @@ func (a *App) syncMouse() {
 	a.windowY = windowY
 	a.windowPositionKnown = windowPositionKnown
 wheel:
-	wheelX, wheelY := ebiten.Wheel()
+	wheelX, wheelY := mouseWheel()
 	if (wheelX != 0 || wheelY != 0) && (a.scrollThrottle == 0 || now.Sub(a.lastWheelAt) >= a.scrollThrottle) {
 		reportY := normalizeWheelDeltaY(wheelY, a.invertScroll)
 		reportX := normalizeWheelDeltaX(wheelX, a.invertScroll)
@@ -955,7 +956,7 @@ func shouldSendRelativeMouse(lastX, lastY, x, y int, lastButtons, buttons byte, 
 }
 
 func currentWindowPosition() (x, y int, known bool) {
-	if ebiten.IsFullscreen() {
+	if isFullscreen() {
 		return 0, 0, false
 	}
 	x, y = ebiten.WindowPosition()
@@ -1433,26 +1434,26 @@ func (a *App) nextSectionLoadSeq(section settingsSection) uint64 {
 func (a *App) setMouseRelative(relative bool) {
 	a.relative = relative
 	a.applyCursorMode()
-	a.lastX, a.lastY = ebiten.CursorPosition()
+	a.lastX, a.lastY = cursorPosition()
 	a.revealUIFor(1200 * time.Millisecond)
 }
 
 func (a *App) applyCursorMode() {
 	switch {
 	case a.settingsOpen:
-		ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		setCursorMode(ebiten.CursorModeVisible)
 	case a.pasteOpen:
-		ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		setCursorMode(ebiten.CursorModeVisible)
 	case a.mediaOpen:
-		ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		setCursorMode(ebiten.CursorModeVisible)
 	case a.serialConsoleOpen:
-		ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		setCursorMode(ebiten.CursorModeVisible)
 	case a.relative:
-		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+		setCursorMode(ebiten.CursorModeCaptured)
 	case a.hideCursor:
-		ebiten.SetCursorMode(ebiten.CursorModeHidden)
+		setCursorMode(ebiten.CursorModeHidden)
 	default:
-		ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		setCursorMode(ebiten.CursorModeVisible)
 	}
 }
 
@@ -3553,7 +3554,7 @@ func (a *App) syncChromeVisibility() {
 	}
 	snap := a.ctrl.Snapshot()
 	hotZone := a.chromeRevealZone(a.lastWidth, a.lastHeight, snap)
-	x, y := ebiten.CursorPosition()
+	x, y := cursorPosition()
 	if x != a.lastUIX || y != a.lastUIY {
 		if hotZone.contains(x, y) || a.settingsOpen || a.pasteOpen || a.mediaOpen || a.serialConsoleOpen {
 			a.revealUIFor(1600 * time.Millisecond)
@@ -3616,7 +3617,7 @@ func (a *App) syncSessionState() {
 		a.launcherMode = launcherModeBrowse
 		a.launcherError = ""
 		a.launcherPassword = ""
-		a.lastX, a.lastY = ebiten.CursorPosition()
+		a.lastX, a.lastY = cursorPosition()
 		a.lastButtons = 0
 		a.revealUIFor(2 * time.Second)
 		if a.prefs.AbsoluteSideButtonsViaRel {
@@ -3671,7 +3672,7 @@ func (a *App) armOverlayDismissSuppression() {
 	a.suppressKeysUntilClear = true
 	a.suppressMouseUntilUp = true
 	a.lastButtons = 0
-	a.lastX, a.lastY = ebiten.CursorPosition()
+	a.lastX, a.lastY = cursorPosition()
 }
 
 func (a *App) closePasteOverlay() {

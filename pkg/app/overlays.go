@@ -115,7 +115,7 @@ func (a *App) syncSerialConsoleInput() {
 		return
 	}
 
-	_, wheelY := ebiten.Wheel()
+	_, wheelY := mouseWheel()
 	if wheelY != 0 {
 		lines := int(math.Round(math.Abs(wheelY) * 3))
 		if lines < 1 {

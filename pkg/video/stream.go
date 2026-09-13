@@ -12,7 +12,11 @@ import (
 	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
+
+	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
 )
+
+const decodeStatsInterval = 5 * time.Second
 
 // h264Decoder turns Annex B access units into frames. The implementation is
 // platform specific; see codec_openh264.go and codec_ios.go.
@@ -103,6 +107,10 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 	go func() {
 		defer stream.Close()
 
+		log := logging.Subsystem("video")
+		var samples, frames, empty, failures int
+		lastReport := time.Now()
+
 		// Screen-content H.264 keyframes can span well over hundreds of RTP packets,
 		// especially on real 1080p devices. A too-small samplebuilder buffer drops
 		// fragmented access units before the decoder ever sees a complete frame.
@@ -133,13 +141,30 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 				if len(payload) == 0 {
 					continue
 				}
+				samples++
 				img, err := decoder.Decode(payload)
-				if err != nil {
+				switch {
+				case err != nil:
+					failures++
+					if prev := stream.Err(); prev == nil || prev.Error() != err.Error() {
+						log.Debug().Err(err).Int("sample", samples).Msg("video decode error")
+					}
 					stream.setError(err)
-					continue
-				}
-				if img != nil {
+				case img == nil:
+					empty++
+				default:
+					frames++
 					stream.publish(Frame{Image: img, At: time.Now()})
+				}
+				if now := time.Now(); now.Sub(lastReport) >= decodeStatsInterval {
+					log.Debug().
+						Int("samples", samples).
+						Int("frames", frames).
+						Int("empty", empty).
+						Int("errors", failures).
+						AnErr("last_error", stream.Err()).
+						Msg("video decode stats")
+					lastReport = now
 				}
 			}
 		}

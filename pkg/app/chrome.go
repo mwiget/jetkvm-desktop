@@ -419,9 +419,11 @@ func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []ch
 			}})
 		}
 	}
+	defs = append(defs, chromeButton{id: "stats", hint: "Connection stats", icon: iconStats, enabled: true, active: a.statsOpen, onClick: func() { a.statsOpen = !a.statsOpen }})
+	if platformHasWindow {
+		defs = append(defs, chromeButton{id: "fullscreen", hint: "Toggle fullscreen", icon: iconFullscreen, enabled: true, active: isFullscreen(), onClick: func() { setFullscreen(!isFullscreen()) }})
+	}
 	defs = append(defs,
-		chromeButton{id: "stats", hint: "Connection stats", icon: iconStats, enabled: true, active: a.statsOpen, onClick: func() { a.statsOpen = !a.statsOpen }},
-		chromeButton{id: "fullscreen", hint: "Toggle fullscreen", icon: iconFullscreen, enabled: true, active: ebiten.IsFullscreen(), onClick: func() { ebiten.SetFullscreen(!ebiten.IsFullscreen()) }},
 		chromeButton{id: "settings", hint: "Settings", icon: iconSettings, enabled: true, active: a.settingsOpen, onClick: func() {
 			if a.settingsOpen {
 				a.closeSettingsOverlay()
@@ -541,7 +543,7 @@ func (a *App) drawHint(screen *ebiten.Image) {
 	if a.prefs.HideHeaderBar {
 		return
 	}
-	x, y := ebiten.CursorPosition()
+	x, y := cursorPosition()
 	for _, btn := range a.chromeButtons {
 		if btn.rect.contains(x, y) {
 			w, _ := ui.MeasureText(btn.hint, 13)
@@ -3894,7 +3896,7 @@ func (a *App) settingsAppearanceBody() ui.Element {
 		ui.Fixed(ui.Spacer{H: 14}),
 		ui.Fixed(settingsSectionLabelElement("Window")),
 		ui.Fixed(ui.Spacer{H: 8}),
-		ui.Fixed(settingsActionButton("Toggle Fullscreen", settingsActionVisual{Enabled: true, Active: ebiten.IsFullscreen()}, 160, func() { ebiten.SetFullscreen(!ebiten.IsFullscreen()) })),
+		ui.Fixed(settingsActionButton("Toggle Fullscreen", settingsActionVisual{Enabled: platformHasWindow, Active: isFullscreen()}, 160, func() { setFullscreen(!isFullscreen()) })),
 		ui.Fixed(ui.Spacer{H: 14}),
 		ui.Fixed(settingsStatusElement("Position chooses where the icon bar sits on screen. Layout changes whether the controls run across or down. Button hints and footer status are desktop-only UI helpers.", a.currentTheme().Muted)),
 	}})

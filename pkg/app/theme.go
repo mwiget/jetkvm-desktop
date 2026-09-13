@@ -18,6 +18,12 @@ func (a *App) currentTheme() ui.Theme {
 	case themeDark:
 		return ui.DarkTheme()
 	case themeSystem:
+		if theme, ok := hostSystemTheme(); ok {
+			if theme == themeLight {
+				return ui.LightTheme()
+			}
+			return ui.DarkTheme()
+		}
 		if a.systemThemeStale() {
 			a.refreshSystemTheme()
 		}
