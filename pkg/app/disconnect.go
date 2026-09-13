@@ -26,6 +26,7 @@ func (a *App) disconnectToLauncher() {
 	// Forget the device and its password; the next device may need a different one.
 	a.cfg.BaseURL = ""
 	a.cfg.Password = ""
+	a.usingSavedPassword = false
 	a.pendingTarget = ""
 	a.launcherPassword = ""
 	a.launcherError = ""

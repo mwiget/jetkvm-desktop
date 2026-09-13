@@ -248,7 +248,7 @@ func (e launcherDevicePanelElement) Measure(ctx *ui.Context, constraints ui.Cons
 		Fill:   ctx.Theme.SectionFill,
 		Stroke: ctx.Theme.ActiveStroke,
 		Insets: ui.SymmetricInsets(16, 12),
-		Child:  launcherDeviceRowElement{device: e.device},
+		Child:  launcherDeviceRowElement{device: e.device, passwordSaved: e.app.passwords.Has(e.device.BaseURL)},
 	}.Measure(ctx, constraints)
 }
 
@@ -257,7 +257,7 @@ func (e launcherDevicePanelElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 		Fill:   ctx.Theme.SectionFill,
 		Stroke: ctx.Theme.ActiveStroke,
 		Insets: ui.SymmetricInsets(16, 12),
-		Child:  launcherDeviceRowElement{device: e.device},
+		Child:  launcherDeviceRowElement{device: e.device, passwordSaved: e.app.passwords.Has(e.device.BaseURL)},
 	}.Draw(ctx, bounds)
 	if ctx.Runtime != nil {
 		baseURL := e.device.BaseURL
@@ -275,14 +275,12 @@ func (e launcherDevicePanelElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 }
 
 type launcherDeviceRowElement struct {
-	device discovery.Device
+	device        discovery.Device
+	passwordSaved bool
 }
 
 func (e launcherDeviceRowElement) Measure(ctx *ui.Context, constraints ui.Constraints) ui.Size {
-	state := "Configured"
-	if !e.device.IsSetup {
-		state = "Needs setup"
-	}
+	state := launcherDeviceState(e.device, e.passwordSaved)
 	return ui.Row{
 		AlignY: ui.AlignCenter,
 		Children: []ui.Child{
@@ -299,10 +297,7 @@ func (e launcherDeviceRowElement) Measure(ctx *ui.Context, constraints ui.Constr
 }
 
 func (e launcherDeviceRowElement) Draw(ctx *ui.Context, bounds ui.Rect) {
-	state := "Configured"
-	if !e.device.IsSetup {
-		state = "Needs setup"
-	}
+	state := launcherDeviceState(e.device, e.passwordSaved)
 	ui.Row{
 		AlignY: ui.AlignCenter,
 		Children: []ui.Child{

@@ -109,6 +109,10 @@ type App struct {
 	mediaURL               string
 	mediaMode              virtualmedia.Mode
 	perf                   appPerfStats
+	// Device passwords saved by the platform, and whether the current
+	// connection attempt uses one (see passwordstore.go).
+	passwords          *savedPasswords
+	usingSavedPassword bool
 	// Text field the user last tapped, and the keyboard target the user
 	// dismissed the on-screen keyboard for (see hostkeyboard.go).
 	hostKeyboardField           string
@@ -428,6 +432,7 @@ func New(cfg Config) (*App, error) {
 		sectionLoadSeq:      make(map[settingsSection]uint64),
 		mediaView:           mediaViewHome,
 		mediaMode:           virtualmedia.ModeCDROM,
+		passwords:           newSavedPasswords(platformPasswordStore()),
 	}, nil
 }
 
@@ -2016,6 +2021,7 @@ func (a *App) invokeLocalAuthSubmit() {
 			}
 			a.cfg.Password = password
 			a.ctrl.SetPassword(password)
+			a.passwords.Save(a.cfg.BaseURL, password)
 			a.clearAccessEditor("Password protection enabled", true)
 			return a.refreshSettingsSectionSync(sectionAccess)
 		})
@@ -2043,6 +2049,7 @@ func (a *App) invokeLocalAuthSubmit() {
 			}
 			a.cfg.Password = newPassword
 			a.ctrl.SetPassword(newPassword)
+			a.passwords.Save(a.cfg.BaseURL, newPassword)
 			a.clearAccessEditor("Password updated", true)
 			return a.refreshSettingsSectionSync(sectionAccess)
 		})
@@ -2059,6 +2066,7 @@ func (a *App) invokeLocalAuthSubmit() {
 			}
 			a.cfg.Password = ""
 			a.ctrl.SetPassword("")
+			a.passwords.Delete(a.cfg.BaseURL)
 			a.clearAccessEditor("Password protection disabled", true)
 			return a.refreshSettingsSectionSync(sectionAccess)
 		})
@@ -3590,6 +3598,7 @@ func (a *App) syncSessionState() {
 	phase := snap.Phase
 	a.rememberDeviceName(snap)
 	if phase == session.PhaseAuthFailed && a.lastPhase != session.PhaseAuthFailed {
+		a.forgetRejectedSavedPassword()
 		errMsg := ""
 		if a.launcherMode == launcherModePassword {
 			errMsg = authPromptError(snap.LastError)
@@ -3631,6 +3640,7 @@ func (a *App) syncSessionState() {
 		a.launcherOpen = false
 		a.launcherMode = launcherModeBrowse
 		a.launcherError = ""
+		a.rememberDevicePassword()
 		a.launcherPassword = ""
 		a.lastX, a.lastY = cursorPosition()
 		a.lastButtons = 0
@@ -4089,7 +4099,7 @@ func (a *App) connectTo(target string) {
 	if a.ctrl != nil {
 		a.ctrl.Stop()
 	}
-	password := a.effectivePassword()
+	password := a.passwordForConnect(baseURL)
 	a.cfg.BaseURL = baseURL
 	a.cfg.Password = password
 	a.mu.Lock()

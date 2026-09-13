@@ -41,6 +41,8 @@ targets:
       - sdk: VideoToolbox.framework
       - sdk: CoreMedia.framework
       - sdk: CoreVideo.framework
+      # Device passwords in the Keychain (pkg/app/passwordstore_ios.go).
+      - sdk: Security.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.mwiget.jetkvm
