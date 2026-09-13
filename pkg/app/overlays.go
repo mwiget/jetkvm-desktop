@@ -12,6 +12,7 @@ import (
 	"golang.design/x/clipboard"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/client"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hostinput"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/ui"
@@ -58,18 +59,18 @@ func (a *App) syncPasteInput() {
 	if !a.pasteOpen {
 		return
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) && (ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight) || ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight)) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEnter) && (ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight) || ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight)) {
 		go a.submitPaste()
 		return
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyBackspace) {
 		runes := []rune(a.pasteText)
 		if len(runes) > 0 {
 			a.pasteText = string(runes[:len(runes)-1])
 			a.updatePastePreview()
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEnter) {
 		a.pasteText += "\n"
 		a.updatePastePreview()
 	}
@@ -77,7 +78,7 @@ func (a *App) syncPasteInput() {
 		a.loadClipboardText()
 		return
 	}
-	for _, r := range ebiten.AppendInputChars(nil) {
+	for _, r := range hostinput.AppendInputChars(nil) {
 		if r >= 32 || r == '\t' {
 			a.pasteText += string(r)
 		}
@@ -131,16 +132,16 @@ func (a *App) syncSerialConsoleInput() {
 		}
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter) {
 		_ = a.ctrl.SendSerialTerminator()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyBackspace) {
 		_ = a.ctrl.SendSerialText("\x7f")
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyTab) {
 		_ = a.ctrl.SendSerialText("\t")
 	}
-	chars := ebiten.AppendInputChars(nil)
+	chars := hostinput.AppendInputChars(nil)
 	if len(chars) != 0 {
 		_ = a.ctrl.SendSerialText(string(chars))
 	}

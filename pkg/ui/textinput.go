@@ -9,6 +9,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"golang.design/x/clipboard"
+
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hostinput"
 )
 
 const (
@@ -230,7 +232,7 @@ func (s *TextInputState) HandleInput(binding TextInputBinding) TextInputResult {
 
 	inserted := false
 	value := binding.Value
-	for _, r := range ebiten.AppendInputChars(nil) {
+	for _, r := range hostinput.AppendInputChars(nil) {
 		if r < 32 || r == 127 {
 			continue
 		}
@@ -353,14 +355,14 @@ func (s *TextInputState) isKeyPressed(key ebiten.Key) bool {
 	if s.keyPressed != nil {
 		return s.keyPressed(key)
 	}
-	return ebiten.IsKeyPressed(key)
+	return hostinput.IsKeyPressed(key)
 }
 
 func (s *TextInputState) isKeyJustPressed(key ebiten.Key) bool {
 	if s.keyJustPress != nil {
 		return s.keyJustPress(key)
 	}
-	return inpututil.IsKeyJustPressed(key)
+	return hostinput.IsKeyJustPressed(key)
 }
 
 func shortcutPressed() bool {

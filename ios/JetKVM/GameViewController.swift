@@ -17,6 +17,10 @@ final class GameViewController: JetkvmEbitenViewController {
     private var hidInputInstalled = false
     private var stateTimer: Timer?
 
+    /// Whether scroll and GCMouse input are set up, i.e. Ebitengine is rendering
+    /// and GameController may be used.
+    var hidInputReady: Bool { hidInputInstalled }
+
     override var prefersPointerLocked: Bool { pointerLocked }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .all }

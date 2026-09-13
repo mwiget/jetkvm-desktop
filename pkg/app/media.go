@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hostinput"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/ui"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/virtualmedia"
@@ -105,7 +105,7 @@ func (a *App) syncMediaInput() {
 		return
 	}
 	a.syncFocusedTextInput()
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEnter) {
 		switch {
 		case a.mediaView == mediaViewURL && a.mediaURLFocused:
 			a.invokeAction("media_mount_url")

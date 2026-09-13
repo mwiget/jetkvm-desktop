@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/discovery"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hostinput"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/ui"
 )
 
@@ -69,7 +69,7 @@ func (a *App) syncLauncherInput() {
 		}
 	}
 	a.syncFocusedTextInput()
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEnter) {
 		if a.launcherMode == launcherModePassword {
 			a.connectFromLauncher(a.pendingTarget)
 		} else {

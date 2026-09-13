@@ -209,6 +209,8 @@ func (a *App) beginTextFieldPointer(id string, fieldRect ui.Rect, shift bool) {
 	if binding == nil || binding.ID != id {
 		return
 	}
+	a.hostKeyboardField = id
+	a.hostKeyboardDismissedTarget = ""
 	a.textInput.Sync(&ui.TextInputBinding{
 		ID:           binding.ID,
 		Value:        *binding.Value,

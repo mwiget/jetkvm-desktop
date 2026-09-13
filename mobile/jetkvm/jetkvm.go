@@ -15,6 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/mobile"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/app"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hostinput"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
 )
 
@@ -68,3 +69,46 @@ func PointerHidden() bool { return app.HostPointerHidden() }
 
 // SetDarkMode reports the system appearance.
 func SetDarkMode(dark bool) { app.HostSetDarkMode(dark) }
+
+// Editing keys for KeyTap.
+const (
+	KeyBackspace = 1
+	KeyEnter     = 2
+	KeyTab       = 3
+	KeyEscape    = 4
+	KeyLeft      = 5
+	KeyRight     = 6
+	KeyDelete    = 7
+)
+
+var editingKeys = map[int]ebiten.Key{
+	KeyBackspace: ebiten.KeyBackspace,
+	KeyEnter:     ebiten.KeyEnter,
+	KeyTab:       ebiten.KeyTab,
+	KeyEscape:    ebiten.KeyEscape,
+	KeyLeft:      ebiten.KeyLeft,
+	KeyRight:     ebiten.KeyRight,
+	KeyDelete:    ebiten.KeyDelete,
+}
+
+// InsertText delivers text typed on the on-screen keyboard.
+func InsertText(text string) { hostinput.InsertText(text) }
+
+// KeyTap delivers an editing key from the on-screen keyboard.
+func KeyTap(key int) {
+	if ebitenKey, ok := editingKeys[key]; ok {
+		hostinput.TapKey(ebitenKey)
+	}
+}
+
+// TextInputActive reports whether the on-screen keyboard should be shown.
+func TextInputActive() bool { return app.HostTextInputActive() }
+
+// TextInputDismissed reports that the user hid the on-screen keyboard.
+func TextInputDismissed() { app.HostTextInputDismissed() }
+
+// AppDidEnterBackground reports that the scene moved to the background.
+func AppDidEnterBackground() { app.HostAppDidEnterBackground() }
+
+// AppDidBecomeActive reports that the scene became active again.
+func AppDidBecomeActive() { app.HostAppDidBecomeActive() }

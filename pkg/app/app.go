@@ -20,6 +20,7 @@ import (
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/client"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/discovery"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hostinput"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
@@ -107,66 +108,70 @@ type App struct {
 	mediaView              mediaView
 	mediaURL               string
 	mediaMode              virtualmedia.Mode
-	mediaURLFocused        bool
-	mediaState             *virtualmedia.State
-	mediaFiles             []mediaFileRow
-	mediaSpace             mediaSpaceSnapshot
-	mediaSelectedFile      string
-	mediaLoading           bool
-	mediaError             string
-	mediaUploadPath        string
-	mediaUploadFocused     bool
-	mediaUploading         bool
-	mediaUploadProgress    float64
-	mediaUploadSent        int64
-	mediaUploadTotal       int64
-	mediaUploadSpeed       float64
-	serialConsoleScroll    int
-	mediaStorageLoaded     bool
-	settingsInputFocus     settingsInputField
-	textInput              ui.TextInputState
-	jigglerEditorOpen      bool
-	jigglerEditorConfig    session.JigglerConfig
-	jigglerEditorError     string
-	accessEditor           accessEditorState
-	tlsEditor              tlsEditorState
-	tlsEditorLoaded        bool
-	tlsEditorDirty         bool
-	videoCustomEDID        string
-	videoCustomEDIDLoaded  bool
-	videoCustomEDIDDirty   bool
-	videoCustomEDIDMessage string
-	videoCustomEDIDSuccess bool
-	h265ConfirmOpen        bool
-	atxConfirmAction       session.ATXPowerAction
-	advancedSSHKey         string
-	advancedSSHLoaded      bool
-	advancedSSHDirty       bool
-	networkEditor          networkEditorState
-	networkEditorLoaded    bool
-	networkEditorDirty     bool
-	usbNetworkEditor       usbNetworkEditorState
-	usbNetworkEditorLoaded bool
-	usbNetworkEditorDirty  bool
-	macroEditor            macroEditorState
-	mqttEditor             mqttEditorState
-	mqttEditorLoaded       bool
-	mqttEditorDirty        bool
-	mqttTestMessage        string
-	mqttTestSuccess        bool
-	updateActionMessage    string
-	updateActionSuccess    bool
-	factoryResetConfirm    bool
-	factoryResetMessage    string
-	factoryResetSuccess    bool
-	hardwareConn           hardwareConnectionState
-	launcherRuntime        ui.Runtime
-	overlayRuntime         ui.Runtime
-	settingsRuntime        ui.Runtime
-	pasteRuntime           ui.Runtime
-	mediaRuntime           ui.Runtime
-	serialConsoleRuntime   ui.Runtime
-	chromeRuntime          ui.Runtime
+	// Text field the user last tapped, and the keyboard target the user
+	// dismissed the on-screen keyboard for (see hostkeyboard.go).
+	hostKeyboardField           string
+	hostKeyboardDismissedTarget string
+	mediaURLFocused             bool
+	mediaState                  *virtualmedia.State
+	mediaFiles                  []mediaFileRow
+	mediaSpace                  mediaSpaceSnapshot
+	mediaSelectedFile           string
+	mediaLoading                bool
+	mediaError                  string
+	mediaUploadPath             string
+	mediaUploadFocused          bool
+	mediaUploading              bool
+	mediaUploadProgress         float64
+	mediaUploadSent             int64
+	mediaUploadTotal            int64
+	mediaUploadSpeed            float64
+	serialConsoleScroll         int
+	mediaStorageLoaded          bool
+	settingsInputFocus          settingsInputField
+	textInput                   ui.TextInputState
+	jigglerEditorOpen           bool
+	jigglerEditorConfig         session.JigglerConfig
+	jigglerEditorError          string
+	accessEditor                accessEditorState
+	tlsEditor                   tlsEditorState
+	tlsEditorLoaded             bool
+	tlsEditorDirty              bool
+	videoCustomEDID             string
+	videoCustomEDIDLoaded       bool
+	videoCustomEDIDDirty        bool
+	videoCustomEDIDMessage      string
+	videoCustomEDIDSuccess      bool
+	h265ConfirmOpen             bool
+	atxConfirmAction            session.ATXPowerAction
+	advancedSSHKey              string
+	advancedSSHLoaded           bool
+	advancedSSHDirty            bool
+	networkEditor               networkEditorState
+	networkEditorLoaded         bool
+	networkEditorDirty          bool
+	usbNetworkEditor            usbNetworkEditorState
+	usbNetworkEditorLoaded      bool
+	usbNetworkEditorDirty       bool
+	macroEditor                 macroEditorState
+	mqttEditor                  mqttEditorState
+	mqttEditorLoaded            bool
+	mqttEditorDirty             bool
+	mqttTestMessage             string
+	mqttTestSuccess             bool
+	updateActionMessage         string
+	updateActionSuccess         bool
+	factoryResetConfirm         bool
+	factoryResetMessage         string
+	factoryResetSuccess         bool
+	hardwareConn                hardwareConnectionState
+	launcherRuntime             ui.Runtime
+	overlayRuntime              ui.Runtime
+	settingsRuntime             ui.Runtime
+	pasteRuntime                ui.Runtime
+	mediaRuntime                ui.Runtime
+	serialConsoleRuntime        ui.Runtime
+	chromeRuntime               ui.Runtime
 }
 
 type hardwareConnectionState struct {
@@ -450,8 +455,10 @@ func (a *App) shouldRunDiscovery() bool {
 
 func (a *App) Update() error {
 	beginPointerFrame()
+	hostinput.BeginFrame()
+	a.syncHostState()
 	a.syncDiscoveryLifecycle()
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEscape) {
 		if a.serialConsoleOpen {
 			a.closeSerialConsoleOverlay()
 			a.revealUIFor(1200 * time.Millisecond)
@@ -2059,7 +2066,7 @@ func (a *App) syncSettingsInput() {
 		return
 	}
 	a.syncFocusedTextInput()
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyTab) {
 		switch a.settingsSection {
 		case sectionMouse:
 			if !a.jigglerEditorOpen {
@@ -2154,7 +2161,7 @@ func (a *App) syncSettingsInput() {
 		}
 		return
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+	if hostinput.IsKeyJustPressed(ebiten.KeyEnter) {
 		switch a.settingsSection {
 		case sectionMouse:
 			a.invokeAction("jiggler_custom_save")
