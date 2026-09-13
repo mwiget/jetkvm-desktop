@@ -23,6 +23,9 @@ type Preferences struct {
 	ScrollThrottle            ScrollThrottle `json:"scroll_throttle"`
 	ScrollThrottleMs          int            `json:"scroll_throttle_ms,omitempty"`
 	PointerMoveThrottleMs     int            `json:"pointer_move_throttle_ms,omitempty"`
+	// DeviceNames maps a device base URL to the hostname it reported after
+	// login; devices do not reveal it before authentication.
+	DeviceNames map[string]string `json:"device_names,omitempty"`
 }
 
 //go:generate go tool github.com/dmarkham/enumer -type=Theme,ChromeAnchor,ChromeLayout,ScrollThrottle -linecomment -json -text -output prefs_enums.go

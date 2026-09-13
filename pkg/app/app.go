@@ -3588,6 +3588,7 @@ func (a *App) syncSessionState() {
 	}
 	snap := a.ctrl.Snapshot()
 	phase := snap.Phase
+	a.rememberDeviceName(snap)
 	if phase == session.PhaseAuthFailed && a.lastPhase != session.PhaseAuthFailed {
 		errMsg := ""
 		if a.launcherMode == launcherModePassword {

@@ -28,6 +28,7 @@ func (a *App) syncDiscovery() {
 }
 
 func (a *App) addDiscoveredDevice(device discovery.Device) {
+	device = a.withSavedDeviceName(device)
 	for i := range a.discovered {
 		if a.discovered[i].BaseURL == device.BaseURL {
 			a.discovered[i] = device
