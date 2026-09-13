@@ -23,8 +23,17 @@ func init() {
 	// iOS discards stderr unless launched with `simctl launch --console`. Keep
 	// logs and Go panics in the app's temporary directory instead, where they
 	// can be pulled from the app container.
-	if logFile, err := os.Create(filepath.Join(os.TempDir(), "jetkvm.log")); err == nil {
-		_ = syscall.Dup2(int(logFile.Fd()), 2)
+	logDirs := []string{os.TempDir()}
+	// On a Mac, TMPDIR is the user's shared temporary directory, which the
+	// sandbox doesn't let the app write; the container is CFFIXED_USER_HOME.
+	if home := os.Getenv("CFFIXED_USER_HOME"); home != "" {
+		logDirs = append(logDirs, filepath.Join(home, "tmp"))
+	}
+	for _, dir := range logDirs {
+		if logFile, err := os.Create(filepath.Join(dir, "jetkvm.log")); err == nil {
+			_ = syscall.Dup2(int(logFile.Fd()), 2)
+			break
+		}
 	}
 
 	// There is no command line on iPadOS. JETKVM_URL, JETKVM_PASSWORD and

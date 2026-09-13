@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Builds the iPadOS app for Apple Silicon Macs ("Designed for iPad") and exports
+# a development-signed ios/build/export/JetKVM.ipa. With --install, opens the
+# .ipa, which installs the app into /Applications.
+#
+# The Mac must be registered in the team's provisioning profile; the first run
+# registers it automatically (-allowProvisioningDeviceRegistration).
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+install=false
+for arg in "$@"; do
+  case "$arg" in
+    --install) install=true ;;
+    *) echo "usage: scripts/build-mac [--install]" >&2; exit 2 ;;
+  esac
+done
+
+if [[ "$(uname -m)" != "arm64" ]]; then
+  echo "iPad apps only run on Apple Silicon Macs" >&2
+  exit 1
+fi
+
+scripts/build-ios
+
+cd ios
+rm -rf build/JetKVM.xcarchive build/export
+xcodebuild archive \
+  -project JetKVM.xcodeproj \
+  -scheme JetKVM \
+  -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -archivePath build/JetKVM.xcarchive \
+  -allowProvisioningUpdates \
+  -allowProvisioningDeviceRegistration \
+  -quiet
+xcodebuild -exportArchive \
+  -archivePath build/JetKVM.xcarchive \
+  -exportPath build/export \
+  -exportOptionsPlist ExportOptions-mac.plist \
+  -allowProvisioningUpdates \
+  -quiet
+echo "Built ios/build/export/JetKVM.ipa"
+
+if "$install"; then
+  # Installing over an existing copy adds "JetKVM 2.app" instead of upgrading
+  # it, and the root-owned wrapper can't be removed without authorization, so
+  # quit the app and have Finder move old copies to the Trash (it may ask for
+  # an administrator password).
+  osascript -e 'quit app "JetKVM"' 2>/dev/null || true
+  while pgrep -f '/Wrapper/JetKVM.app/JetKVM$' >/dev/null; do sleep 0.5; done
+  for app in /Applications/JetKVM.app /Applications/JetKVM\ [0-9]*.app; do
+    [[ -e "$app" ]] || continue
+    osascript -e "tell application \"Finder\" to delete POSIX file \"$app\"" >/dev/null
+  done
+  open build/export/JetKVM.ipa
+  echo "Installing into /Applications/JetKVM.app"
+fi

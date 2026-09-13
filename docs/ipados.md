@@ -30,6 +30,33 @@ itself constantly to preempt goroutines, and LLDB stops on each signal, so with
 the debugger attached the app lags badly and misses key presses. Attach with
 Debug > Attach to Process only when you need breakpoints.
 
+## Mac
+
+The same iPad build runs on Apple Silicon Macs as a "Designed for iPad" app; no
+separate target or code is needed. Mac Catalyst is not an option because
+Ebitengine has no Catalyst backend (`gomobile`'s Catalyst target builds with
+`GOOS=darwin`, which drops the UIKit code).
+
+```bash
+scripts/build-mac --install
+```
+
+The script runs `scripts/build-ios`, archives the app, exports a
+development-signed `ios/build/export/JetKVM.ipa` and, with `--install`, opens it,
+which installs `/Applications/JetKVM.app`. The Mac must be in the team's
+provisioning profile; the first build registers it. From Xcode, pick the
+"My Mac (Designed for iPad)" run destination instead.
+
+A copied `.app` with a hand-made `Wrapper/` directory is rejected by Gatekeeper
+("bad app wrapper"); install through the `.ipa`. Opening an `.ipa` while the app
+is already installed adds `JetKVM 2.app` instead of upgrading it, so `--install`
+first quits the app and moves existing copies to the Trash (Finder may ask for
+an administrator password, since the installed wrapper is owned by root).
+
+On the Mac the Go log is `tmp/jetkvm.log` in the app's container under
+`~/Library/Containers/<UUID>/Data` (the container is named by a UUID, not the
+bundle identifier).
+
 ## Running
 
 - The launcher discovers JetKVM devices on the local network. iPadOS asks for

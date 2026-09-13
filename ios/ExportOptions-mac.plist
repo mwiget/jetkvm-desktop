@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Development-signed export used by scripts/build-mac. The resulting .ipa
+     installs on Apple Silicon Macs registered in the team's profile. -->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>debugging</string>
+	<key>teamID</key>
+	<string>HGECWA98QL</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+</dict>
+</plist>
