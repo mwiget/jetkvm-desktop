@@ -33,12 +33,18 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.mwiget.jetkvm
         # Must differ from the Go framework's "Jetkvm" module beyond letter case.
         PRODUCT_MODULE_NAME: JetKVMApp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "0.1"
         CURRENT_PROJECT_VERSION: "1"
     info:
       path: JetKVM/Info.plist
       properties:
         CFBundleDisplayName: JetKVM
+        # jetkvm://host[:port] opens the app connected to that device.
+        CFBundleURLTypes:
+          - CFBundleURLName: io.github.mwiget.jetkvm
+            CFBundleURLSchemes:
+              - jetkvm
         UILaunchScreen: {}
         UIRequiresFullScreen: false
         # Deliver trackpad and mouse clicks as indirect pointer touches with button masks.

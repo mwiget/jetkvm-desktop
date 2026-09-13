@@ -317,6 +317,10 @@ func (a *App) pickUploadFile() {
 		a.mediaError = err.Error()
 		return
 	}
+	a.applyPickedUploadFile(path)
+}
+
+func (a *App) applyPickedUploadFile(path string) {
 	a.mediaUploadPath = path
 	a.mediaUploadFocused = true
 	a.mediaURLFocused = false

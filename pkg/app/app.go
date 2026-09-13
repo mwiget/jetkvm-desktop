@@ -457,6 +457,7 @@ func (a *App) Update() error {
 	beginPointerFrame()
 	hostinput.BeginFrame()
 	a.syncHostState()
+	a.syncHostRequests()
 	a.syncDiscoveryLifecycle()
 	if hostinput.IsKeyJustPressed(ebiten.KeyEscape) {
 		if a.serialConsoleOpen {

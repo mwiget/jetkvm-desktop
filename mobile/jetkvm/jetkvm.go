@@ -112,3 +112,12 @@ func AppDidEnterBackground() { app.HostAppDidEnterBackground() }
 
 // AppDidBecomeActive reports that the scene became active again.
 func AppDidBecomeActive() { app.HostAppDidBecomeActive() }
+
+// FilePickerRequested reports, once per request, that a disk image should be chosen.
+func FilePickerRequested() bool { return app.HostFilePickerRequested() }
+
+// FilePicked delivers the local path of the chosen disk image.
+func FilePicked(path string) { app.HostFilePicked(path) }
+
+// OpenURL delivers a jetkvm://host[:port] URL to connect to.
+func OpenURL(url string) { app.HostOpenURL(url) }

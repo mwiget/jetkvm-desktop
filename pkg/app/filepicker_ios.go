@@ -2,9 +2,10 @@
 
 package app
 
-import "errors"
-
-// TODO(ipados): present UIDocumentPickerViewController from the host app.
+// chooseDiskImage asks the host app to present the document picker. The chosen
+// file arrives later through HostFilePicked, so report the synchronous call as
+// cancelled.
 func chooseDiskImage() (path string, cancelled bool, err error) {
-	return "", false, errors.New("choosing local disk images is not supported on iPadOS yet")
+	hostFilePickerRequested.Store(true)
+	return "", true, nil
 }

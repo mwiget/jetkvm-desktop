@@ -11,6 +11,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = hostController
         window.makeKeyAndVisible()
         self.window = window
+        openURLs(connectionOptions.urlContexts)
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        openURLs(URLContexts)
+    }
+
+    /// jetkvm://host[:port] connects to that device.
+    private func openURLs(_ contexts: Set<UIOpenURLContext>) {
+        for context in contexts {
+            JetkvmOpenURL(context.url.absoluteString)
+        }
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {

@@ -1,6 +1,7 @@
 import GameController
 import Jetkvm
 import UIKit
+import UniformTypeIdentifiers
 
 /// Root controller. Keeps the game view above the on-screen keyboard and shows
 /// the keyboard while the Go app wants typing and no hardware keyboard is
@@ -39,6 +40,7 @@ final class HostViewController: UIViewController {
 
         let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.syncKeyboard()
+            self?.syncFilePicker()
         }
         RunLoop.main.add(timer, forMode: .common)
         keyboardTimer = timer
@@ -74,5 +76,21 @@ final class HostViewController: UIViewController {
         if textInput.isFirstResponder && !resigningKeyboard {
             JetkvmTextInputDismissed()
         }
+    }
+
+    private func syncFilePicker() {
+        guard presentedViewController == nil, JetkvmFilePickerRequested() else { return }
+        let types = ["iso", "img"].compactMap { UTType(filenameExtension: $0) }
+        // asCopy places the file in the app sandbox, where the Go upload can open it by path.
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types.isEmpty ? [.data] : types, asCopy: true)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+}
+
+extension HostViewController: UIDocumentPickerDelegate {
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        JetkvmFilePicked(url.path)
     }
 }
