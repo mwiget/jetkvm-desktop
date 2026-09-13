@@ -1,3 +1,5 @@
 research/
 .cache/
 /jetkvm-desktop
+ios/build/
+ios/JetKVM.xcodeproj/

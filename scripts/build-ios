@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Builds ios/build/Jetkvm.xcframework from ./mobile/jetkvm and generates
+# ios/JetKVM.xcodeproj. Open the project in Xcode, or build it with xcodebuild.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+EBITEN_VERSION="$(go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)"
+EBITENMOBILE="$(go env GOPATH)/bin/ebitenmobile"
+if [[ ! -x "$EBITENMOBILE" ]]; then
+  go install "github.com/hajimehoshi/ebiten/v2/cmd/ebitenmobile@${EBITEN_VERSION}"
+fi
+
+if ! command -v xcodegen >/dev/null; then
+  echo "xcodegen is required: brew install xcodegen" >&2
+  exit 1
+fi
+
+mkdir -p ios/build
+"$EBITENMOBILE" bind \
+  -target ios \
+  -iosversion 17.0 \
+  -o ios/build/Jetkvm.xcframework \
+  ./mobile/jetkvm
+
+(cd ios && xcodegen generate --quiet)
+echo "Built ios/build/Jetkvm.xcframework and ios/JetKVM.xcodeproj"

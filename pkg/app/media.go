@@ -10,7 +10,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/sqweek/dialog"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/ui"
@@ -310,14 +309,11 @@ func (a *App) invokeMediaAction(id string) bool {
 }
 
 func (a *App) pickUploadFile() {
-	path, err := dialog.File().
-		Title("Choose disk image").
-		Filter("Disk images", "iso", "img").
-		Load()
+	path, cancelled, err := chooseDiskImage()
+	if cancelled {
+		return
+	}
 	if err != nil {
-		if err == dialog.ErrCancelled {
-			return
-		}
 		a.mediaError = err.Error()
 		return
 	}

@@ -1,0 +1,50 @@
+# XcodeGen spec for the iPadOS host app. Generate JetKVM.xcodeproj with
+# scripts/build-ios (which also builds build/Jetkvm.xcframework first).
+name: JetKVM
+options:
+  bundleIdPrefix: io.github.mwiget
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: HGECWA98QL
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "2"
+targets:
+  JetKVM:
+    type: application
+    platform: iOS
+    sources:
+      - path: JetKVM
+    dependencies:
+      - framework: build/Jetkvm.xcframework
+        embed: false
+      # Ebitengine's gamepad support.
+      - sdk: GameController.framework
+      # Go's cgo DNS resolver.
+      - sdk: libresolv.tbd
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.mwiget.jetkvm
+        MARKETING_VERSION: "0.1"
+        CURRENT_PROJECT_VERSION: "1"
+    info:
+      path: JetKVM/Info.plist
+      properties:
+        CFBundleDisplayName: JetKVM
+        UILaunchScreen: {}
+        UIRequiresFullScreen: false
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: JetKVM finds and connects to KVM devices on your local network.
+        UIApplicationSceneManifest:
+          # Ebitengine runs a single game instance, so only one window scene.
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
