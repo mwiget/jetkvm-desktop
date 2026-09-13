@@ -11,6 +11,19 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "2"
+schemes:
+  JetKVM:
+    build:
+      targets:
+        JetKVM: all
+    run:
+      config: Debug
+      # Go's runtime signals itself constantly (goroutine preemption) and LLDB
+      # stops on every one, which makes the app crawl and drop keys. Run without
+      # the debugger; attach from Debug > Attach to Process when needed.
+      debugEnabled: false
+    archive:
+      config: Release
 targets:
   JetKVM:
     type: application

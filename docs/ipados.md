@@ -25,6 +25,11 @@ Re-run it after changing Go code; Swift-only changes just need a rebuild in Xcod
 To run on a device, select your team under Signing & Capabilities (or change
 `DEVELOPMENT_TEAM` in `ios/project.yml`).
 
+The generated scheme runs the app without the debugger. Go's runtime signals
+itself constantly to preempt goroutines, and LLDB stops on each signal, so with
+the debugger attached the app lags badly and misses key presses. Attach with
+Debug > Attach to Process only when you need breakpoints.
+
 ## Running
 
 - The launcher discovers JetKVM devices on the local network. iPadOS asks for
@@ -36,7 +41,10 @@ To run on a device, select your team under Signing & Capabilities (or change
   `JETKVM_DESKTOP_LOG_LEVEL`.
 - Go logs and panics are written to `tmp/jetkvm.log` inside the app's data
   container (`xcrun simctl get_app_container <device> io.github.mwiget.jetkvm data`
-  in the simulator).
+  in the simulator; `xcrun devicectl device copy from --domain-type appDataContainer
+  --domain-identifier io.github.mwiget.jetkvm --source tmp/jetkvm.log` on a device).
+  At `debug` level the log includes video decode statistics and, every five
+  seconds, frame rate, update/draw/upload timings and key send times.
 
 To try the app without hardware, run the emulator on the Mac and point the
 simulator at it:

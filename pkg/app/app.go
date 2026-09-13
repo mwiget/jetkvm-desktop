@@ -108,6 +108,7 @@ type App struct {
 	mediaView              mediaView
 	mediaURL               string
 	mediaMode              virtualmedia.Mode
+	perf                   appPerfStats
 	// Text field the user last tapped, and the keyboard target the user
 	// dismissed the on-screen keyboard for (see hostkeyboard.go).
 	hostKeyboardField           string
@@ -454,6 +455,7 @@ func (a *App) shouldRunDiscovery() bool {
 }
 
 func (a *App) Update() error {
+	defer a.perf.trackUpdate(time.Now())
 	beginPointerFrame()
 	hostinput.BeginFrame()
 	a.syncHostState()
@@ -584,6 +586,7 @@ func (a *App) syncVideoFrame() {
 }
 
 func (a *App) uploadVideoFrame(frame image.Image, at time.Time) {
+	defer a.perf.trackUpload(time.Now())
 	rgba := frameToRGBA(frame)
 
 	a.mu.Lock()
@@ -607,6 +610,7 @@ func frameToRGBA(src image.Image) *image.RGBA {
 }
 
 func (a *App) Draw(screen *ebiten.Image) {
+	defer a.perf.trackDraw(time.Now())
 	if a.launcherOpen {
 		a.drawLauncher(screen)
 		return
@@ -690,7 +694,9 @@ func (a *App) syncKeyboard() {
 		return
 	}
 	for _, evt := range a.keyboard.Update(keys, now) {
+		sendStart := time.Now()
 		_ = a.ctrl.SendKeypress(evt.HID, evt.Press)
+		a.perf.trackKeySend(sendStart)
 	}
 	if a.keyboard.KeepAlive(now) {
 		_ = a.ctrl.SendKeypressKeepAlive()
