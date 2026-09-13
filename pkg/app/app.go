@@ -109,6 +109,14 @@ type App struct {
 	mediaURL               string
 	mediaMode              virtualmedia.Mode
 	perf                   appPerfStats
+	// Wake attempts for the current connection (see wake.go).
+	wake wakeSchedule
+	// Whether this connection already updated the device's last-connected time.
+	deviceConnectionRecorded bool
+	// Connection timeline logging (see connectlog.go).
+	connectStartedAt time.Time
+	loggedPhase      session.Phase
+	loggedStatus     string
 	// Set by the disconnect button and applied at the start of the next tick.
 	disconnectRequested bool
 	// Device passwords saved by the platform, and whether the current
@@ -522,6 +530,7 @@ func (a *App) Update() error {
 	a.syncMediaInput()
 	a.syncSerialConsoleInput()
 	a.syncVideoFrame()
+	a.syncWake(time.Now())
 	a.syncKeyboard()
 	a.syncMouse()
 	return nil
@@ -595,6 +604,9 @@ func (a *App) syncVideoFrame() {
 
 func (a *App) uploadVideoFrame(frame image.Image, at time.Time) {
 	defer a.perf.trackUpload(time.Now())
+	if a.lastFrameAt.IsZero() {
+		a.logFirstVideoFrame()
+	}
 	rgba := frameToRGBA(frame)
 
 	a.mu.Lock()
@@ -3599,7 +3611,8 @@ func (a *App) syncSessionState() {
 	}
 	snap := a.ctrl.Snapshot()
 	phase := snap.Phase
-	a.rememberDeviceName(snap)
+	a.rememberConnectedDevice(snap)
+	a.logConnectionProgress(snap)
 	if phase == session.PhaseAuthFailed && a.lastPhase != session.PhaseAuthFailed {
 		a.forgetRejectedSavedPassword()
 		errMsg := ""
@@ -4113,6 +4126,9 @@ func (a *App) connectTo(target string) {
 	a.lastFrameAt = time.Time{}
 	a.mu.Unlock()
 	a.lastPhase = session.PhaseIdle
+	a.connectStartedAt = time.Now()
+	a.wake = wakeSchedule{}
+	a.deviceConnectionRecorded = false
 	a.resetConnectionHardwareState()
 	a.stats = client.StatsSnapshot{}
 	a.statsHistory = nil

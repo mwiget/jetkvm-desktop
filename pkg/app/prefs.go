@@ -23,9 +23,20 @@ type Preferences struct {
 	ScrollThrottle            ScrollThrottle `json:"scroll_throttle"`
 	ScrollThrottleMs          int            `json:"scroll_throttle_ms,omitempty"`
 	PointerMoveThrottleMs     int            `json:"pointer_move_throttle_ms,omitempty"`
-	// DeviceNames maps a device base URL to the hostname it reported after
-	// login; devices do not reveal it before authentication.
-	DeviceNames map[string]string `json:"device_names,omitempty"`
+	// WakeOnConnect sends harmless input after connecting while no video
+	// arrives, to wake a sleeping computer (see wake.go).
+	WakeOnConnect bool `json:"wake_on_connect"`
+	// Devices remembers what each device reported after login, keyed by base
+	// URL; before authentication devices only reveal whether they are set up.
+	Devices map[string]SavedDevice `json:"devices,omitempty"`
+}
+
+// SavedDevice is what the launcher shows about a device it connected to before.
+type SavedDevice struct {
+	Name          string    `json:"name,omitempty"`
+	DeviceID      string    `json:"device_id,omitempty"`
+	AppVersion    string    `json:"app_version,omitempty"`
+	LastConnected time.Time `json:"last_connected,omitempty"`
 }
 
 //go:generate go tool github.com/dmarkham/enumer -type=Theme,ChromeAnchor,ChromeLayout,ScrollThrottle -linecomment -json -text -output prefs_enums.go
@@ -88,6 +99,7 @@ func defaultPreferences() Preferences {
 		ScrollThrottle:            scrollThrottleOff,
 		ScrollThrottleMs:          0,
 		PointerMoveThrottleMs:     8,
+		WakeOnConnect:             true,
 	}
 }
 
@@ -107,6 +119,9 @@ func loadPreferences() Preferences {
 	var prefs Preferences
 	if err := json.Unmarshal(data, &prefs); err != nil {
 		return defaultPreferences()
+	}
+	if _, ok := raw["wake_on_connect"]; !ok {
+		prefs.WakeOnConnect = true
 	}
 	if _, ok := raw["absolute_side_buttons_via_relative"]; !ok {
 		prefs.AbsoluteSideButtonsViaRel = true

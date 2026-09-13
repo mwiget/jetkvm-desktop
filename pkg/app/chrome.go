@@ -1861,6 +1861,17 @@ func (a *App) settingsMouseBody(snap session.Snapshot) ui.Element {
 			a.invertScroll = !a.invertScroll
 			a.savePreferences()
 		})),
+		ui.Fixed(ui.Spacer{H: 14}),
+		ui.Fixed(ui.Paragraph{
+			Text:  "When no video arrives shortly after connecting, nudge the mouse by one count and back, then tap Shift, to wake a sleeping computer.",
+			Size:  12,
+			Color: a.currentTheme().Muted,
+		}),
+		ui.Fixed(ui.Spacer{H: 12}),
+		ui.Fixed(settingsToggleRowControl("Wake Computer on Connect", settingsActionVisual{Enabled: true, Active: a.prefs.WakeOnConnect}, func() {
+			a.prefs.WakeOnConnect = !a.prefs.WakeOnConnect
+			a.savePreferences()
+		})),
 		ui.Fixed(ui.Spacer{H: 18}),
 		ui.Fixed(settingsSectionLabelElement("Compatibility")),
 		ui.Fixed(ui.Spacer{H: 8}),

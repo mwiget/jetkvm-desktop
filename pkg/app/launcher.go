@@ -248,7 +248,7 @@ func (e launcherDevicePanelElement) Measure(ctx *ui.Context, constraints ui.Cons
 		Fill:   ctx.Theme.SectionFill,
 		Stroke: ctx.Theme.ActiveStroke,
 		Insets: ui.SymmetricInsets(16, 12),
-		Child:  launcherDeviceRowElement{device: e.device, passwordSaved: e.app.passwords.Has(e.device.BaseURL)},
+		Child:  launcherDeviceRowElement{device: e.device, detail: e.app.launcherDeviceDetail(e.device), passwordSaved: e.app.passwords.Has(e.device.BaseURL)},
 	}.Measure(ctx, constraints)
 }
 
@@ -257,7 +257,7 @@ func (e launcherDevicePanelElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 		Fill:   ctx.Theme.SectionFill,
 		Stroke: ctx.Theme.ActiveStroke,
 		Insets: ui.SymmetricInsets(16, 12),
-		Child:  launcherDeviceRowElement{device: e.device, passwordSaved: e.app.passwords.Has(e.device.BaseURL)},
+		Child:  launcherDeviceRowElement{device: e.device, detail: e.app.launcherDeviceDetail(e.device), passwordSaved: e.app.passwords.Has(e.device.BaseURL)},
 	}.Draw(ctx, bounds)
 	if ctx.Runtime != nil {
 		baseURL := e.device.BaseURL
@@ -276,6 +276,7 @@ func (e launcherDevicePanelElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 
 type launcherDeviceRowElement struct {
 	device        discovery.Device
+	detail        string
 	passwordSaved bool
 }
 
@@ -288,7 +289,7 @@ func (e launcherDeviceRowElement) Measure(ctx *ui.Context, constraints ui.Constr
 				Children: []ui.Child{
 					ui.Fixed(ui.Label{Text: e.device.Name, Size: 17}),
 					ui.Fixed(ui.Spacer{H: 8}),
-					ui.Fixed(ui.Label{Text: e.device.BaseURL, Size: 13}),
+					ui.Fixed(ui.Label{Text: e.detail, Size: 13}),
 				},
 			}, 1),
 			ui.Fixed(ui.Label{Text: state, Size: 13}),
@@ -305,7 +306,7 @@ func (e launcherDeviceRowElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 				Children: []ui.Child{
 					ui.Fixed(ui.Label{Text: e.device.Name, Size: 17, Color: ctx.Theme.Title}),
 					ui.Fixed(ui.Spacer{H: 8}),
-					ui.Fixed(ui.Label{Text: e.device.BaseURL, Size: 13, Color: ctx.Theme.Muted}),
+					ui.Fixed(ui.Label{Text: e.detail, Size: 13, Color: ctx.Theme.Muted}),
 				},
 			}, 1),
 			ui.Fixed(ui.Label{Text: state, Size: 13, Color: ctx.Theme.AccentText}),
