@@ -1,6 +1,40 @@
 package app
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+)
+
+// Regression: the disconnect button cleared the session controller from its
+// click handler, and the rest of that Update dereferenced it (nil panic that
+// stopped the game loop on iPad).
+func TestDisconnectButtonDefersUntilNextTick(t *testing.T) {
+	a, err := New(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.ctrl = session.New(session.Config{BaseURL: "http://192.168.1.50"})
+
+	var clicked bool
+	for _, button := range a.layoutChromeButtons(1280, 720, session.Snapshot{Phase: session.PhaseConnected}) {
+		if button.id == "disconnect" {
+			button.onClick()
+			clicked = true
+		}
+	}
+	if !clicked {
+		t.Fatal("disconnect button not found")
+	}
+	if a.ctrl == nil || !a.disconnectRequested {
+		t.Fatal("clicking disconnect must only request it, keeping the controller for the rest of the tick")
+	}
+
+	a.applyPendingDisconnect()
+	if a.ctrl != nil || a.disconnectRequested || !a.launcherOpen {
+		t.Fatal("pending disconnect should be applied at the start of the next tick")
+	}
+}
 
 func TestDisconnectToLauncherResetsSessionState(t *testing.T) {
 	a := &App{

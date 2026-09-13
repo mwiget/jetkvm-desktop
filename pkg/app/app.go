@@ -109,6 +109,8 @@ type App struct {
 	mediaURL               string
 	mediaMode              virtualmedia.Mode
 	perf                   appPerfStats
+	// Set by the disconnect button and applied at the start of the next tick.
+	disconnectRequested bool
 	// Device passwords saved by the platform, and whether the current
 	// connection attempt uses one (see passwordstore.go).
 	passwords          *savedPasswords
@@ -465,6 +467,7 @@ func (a *App) Update() error {
 	hostinput.BeginFrame()
 	a.syncHostState()
 	a.syncHostRequests()
+	a.applyPendingDisconnect()
 	a.syncDiscoveryLifecycle()
 	if hostinput.IsKeyJustPressed(ebiten.KeyEscape) {
 		if a.serialConsoleOpen {

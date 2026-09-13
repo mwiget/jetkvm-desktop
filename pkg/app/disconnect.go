@@ -7,6 +7,23 @@ import (
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 )
 
+// requestDisconnect asks to leave the session at the start of the next tick.
+// UI handlers run in the middle of Update, and the rest of that Update still
+// uses the session controller, so it must not be cleared from a handler.
+func (a *App) requestDisconnect() {
+	a.disconnectRequested = true
+}
+
+// applyPendingDisconnect performs a requested disconnect. Update calls it before
+// anything touches the session controller.
+func (a *App) applyPendingDisconnect() {
+	if !a.disconnectRequested {
+		return
+	}
+	a.disconnectRequested = false
+	a.disconnectToLauncher()
+}
+
 // disconnectToLauncher ends the current session and returns to the device
 // list, so another device can be chosen without restarting the app.
 func (a *App) disconnectToLauncher() {
