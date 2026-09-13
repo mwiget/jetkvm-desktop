@@ -109,7 +109,7 @@ func (s *Scanner) scan(ctx context.Context) {
 		return
 	}
 
-	sem := make(chan struct{}, 48)
+	sem := make(chan struct{}, scanConcurrency)
 	var wg sync.WaitGroup
 	for _, target := range targets {
 		select {
@@ -131,6 +131,18 @@ func (s *Scanner) scan(ctx context.Context) {
 	}
 	wg.Wait()
 }
+
+const (
+	// scanConcurrency bounds how many addresses are probed at once. Each probe
+	// opens up to two connections (HTTP and HTTPS).
+	scanConcurrency = 64
+	// probeDialTimeout bounds connecting to an address. On a LAN a device
+	// answers within milliseconds; an address without one never answers, so
+	// this dominates how long a scan takes.
+	probeDialTimeout = 400 * time.Millisecond
+	// probeTimeout bounds a whole status request once connected.
+	probeTimeout = 1200 * time.Millisecond
+)
 
 var (
 	discoveryEnumerateTargets = enumerateTargets
@@ -247,18 +259,36 @@ func uint32ToIPv4(value uint32) [4]byte {
 	}
 }
 
+// probeTarget checks HTTP and HTTPS at the same time, so an address without a
+// device costs one dial timeout rather than two. HTTP wins when both answer.
 func probeTarget(parent context.Context, addr netip.Addr) (Device, bool) {
-	for _, scheme := range []string{"http", "https"} {
-		device, ok := probeScheme(parent, addr, scheme)
-		if ok {
-			return device, true
-		}
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+
+	type result struct {
+		device Device
+		ok     bool
 	}
-	return Device{}, false
+	httpResult := make(chan result, 1)
+	httpsResult := make(chan result, 1)
+	go func() {
+		device, ok := probeScheme(ctx, addr, "http")
+		httpResult <- result{device, ok}
+	}()
+	go func() {
+		device, ok := probeScheme(ctx, addr, "https")
+		httpsResult <- result{device, ok}
+	}()
+
+	if r := <-httpResult; r.ok {
+		return r.device, true
+	}
+	r := <-httpsResult
+	return r.device, r.ok
 }
 
 func probeScheme(parent context.Context, addr netip.Addr, scheme string) (Device, bool) {
-	ctx, cancel := context.WithTimeout(parent, 1200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(parent, probeTimeout)
 	defer cancel()
 
 	baseURL := fmt.Sprintf("%s://%s", scheme, addr.String())
@@ -299,11 +329,12 @@ func probeScheme(parent context.Context, addr netip.Addr, scheme string) (Device
 }
 
 var discoveryHTTPClient = &http.Client{
-	Timeout: 1200 * time.Millisecond,
+	Timeout: probeTimeout,
 	Transport: &http.Transport{
+		DialContext:         (&net.Dialer{Timeout: probeDialTimeout}).DialContext,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 		DisableKeepAlives:   true,
-		TLSHandshakeTimeout: 1200 * time.Millisecond,
+		TLSHandshakeTimeout: probeTimeout,
 	},
 }
 

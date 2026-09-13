@@ -380,6 +380,9 @@ func (a *App) revealUIFor(d time.Duration) {
 
 func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []chromeButton {
 	defs := make([]chromeButton, 0, 5)
+	if a.ctrl != nil {
+		defs = append(defs, chromeButton{id: "disconnect", hint: "Disconnect and choose another device", icon: iconClose, enabled: true, onClick: a.disconnectToLauncher})
+	}
 	if snap.Phase != session.PhaseConnected {
 		defs = append(defs, chromeButton{id: "reconnect", hint: reconnectLabel(snap.Phase), icon: iconReconnect, enabled: true, onClick: func() {
 			if a.ctrl == nil {
