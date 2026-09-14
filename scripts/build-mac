@@ -27,6 +27,17 @@ scripts/build-ios
 
 cd ios
 rm -rf build/JetKVM.xcarchive build/export
+# Archiving for generic iOS never registers this Mac, so build once for the
+# "Designed for iPad" destination to add it to the provisioning profile.
+xcodebuild build \
+  -project JetKVM.xcodeproj \
+  -scheme JetKVM \
+  -configuration Release \
+  -destination 'platform=macOS,arch=arm64,variant=Designed for iPad' \
+  -derivedDataPath build/DerivedData-mac \
+  -allowProvisioningUpdates \
+  -allowProvisioningDeviceRegistration \
+  -quiet
 xcodebuild archive \
   -project JetKVM.xcodeproj \
   -scheme JetKVM \
@@ -55,6 +66,9 @@ if "$install"; then
     [[ -e "$app" ]] || continue
     osascript -e "tell application \"Finder\" to delete POSIX file \"$app\"" >/dev/null
   done
+  # A still-open installer window from an earlier failed install ignores the
+  # next open, so the new .ipa would silently not be installed.
+  pkill -x 'iOS App Installer' 2>/dev/null || true
   open build/export/JetKVM.ipa
   echo "Installing into /Applications/JetKVM.app"
 fi
