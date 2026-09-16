@@ -816,8 +816,15 @@ func (c *Client) runHIDHandshake(dc *webrtc.DataChannel) {
 }
 
 func (c *Client) openSignaling(ctx context.Context, pc *webrtc.PeerConnection, answerCh chan<- webrtc.SessionDescription, wsErrCh chan<- error) (*websocket.Conn, bool, error) {
-	conn, _, err := signaling.DialWebsocket(ctx, c.authClient.HTTPClient(), c.cfg.BaseURL)
+	conn, resp, err := signaling.DialWebsocket(ctx, c.authClient.HTTPClient(), c.cfg.BaseURL)
 	if err != nil {
+		// A device that turns the websocket away for want of a password has to
+		// say so: falling back to legacy signaling would bury the 401 under the
+		// 404 that current firmware returns for the legacy endpoint, and the
+		// caller would never ask for a password.
+		if resp != nil && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
+			return nil, false, &auth.Error{StatusCode: resp.StatusCode, Message: "authentication required"}
+		}
 		return nil, true, nil
 	}
 
