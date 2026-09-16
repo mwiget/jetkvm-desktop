@@ -116,14 +116,19 @@ func TextInputActive() bool { return app.HostTextInputActive() }
 // TextInputDismissed reports that the user hid the on-screen keyboard.
 func TextInputDismissed() { app.HostTextInputDismissed() }
 
-// AppWillResignActive reports that the scene stopped being the active one.
+// AppWillResignActive reports that input now goes to another app.
 func AppWillResignActive() { app.HostAppWillResignActive() }
 
-// AppDidEnterBackground reports that the scene moved to the background.
-func AppDidEnterBackground() { app.HostAppDidEnterBackground() }
-
-// AppDidBecomeActive reports that the scene became active again.
+// AppDidBecomeActive reports that input comes to the app again.
 func AppDidBecomeActive() { app.HostAppDidBecomeActive() }
+
+// AppDidEnterBackground reports that the scene moved out of sight. Pass
+// reconnectOnReturn where the system suspends background apps soon after, so
+// that coming back replaces the session instead of first asking the device.
+func AppDidEnterBackground(reconnectOnReturn bool) { app.HostAppDidEnterBackground(reconnectOnReturn) }
+
+// AppWillEnterForeground reports that the scene is coming back into view.
+func AppWillEnterForeground() { app.HostAppWillEnterForeground() }
 
 // FilePickerRequested reports, once per request, that a disk image should be chosen.
 func FilePickerRequested() bool { return app.HostFilePickerRequested() }

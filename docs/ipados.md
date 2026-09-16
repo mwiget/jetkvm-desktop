@@ -69,13 +69,19 @@ comes back, `Controller.ReconnectIfStale` pings the device and reconnects only
 if the session really is gone -- nothing here can tell a dead session from a
 quiet one without asking.
 
-Resigning active does stop the game loop, and with it `video.SetPaused` stops
-copying decoded frames into Go memory, which is most of what an idle background
-app was costing. VideoToolbox keeps decoding, because its reference frames have
-to stay current for the picture to be right afterwards, and it holds the last
-one: becoming active again publishes that through `Controller.RefreshVideo`, so
-a screen that changed and then went static is on screen immediately instead of
-waiting for the device to send something new.
+The game loop stops when the scene enters the background, not when it resigns
+active. On iPadOS an inactive scene can still be on screen, beside another app
+in Split View or Stage Manager, and the KVM picture keeps updating there; only
+input stops, with held keys let go, as when a desktop window loses focus. (On
+a Mac the two coincide, since the scene backgrounds right after losing focus.)
+
+Out of sight, `video.SetPaused` stops copying decoded frames into Go memory,
+which is most of what an idle background app was costing. VideoToolbox keeps
+decoding, because its reference frames have to stay current for the picture to
+be right afterwards, and it holds the last one: coming back publishes that
+through `Controller.RefreshVideo`, so a screen that changed and then went static
+is on screen immediately instead of waiting for the device to send something
+new.
 
 ## Running
 

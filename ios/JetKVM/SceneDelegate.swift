@@ -31,18 +31,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    func sceneDidBecomeActive(_ scene: UIScene) {
+    // The game is suspended out of sight rather than when the scene resigns
+    // active: on iPadOS an inactive scene can still be on screen, beside another
+    // app in Split View or Stage Manager, and the KVM picture should keep up.
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
         hostController.resumeGame()
+        JetkvmAppWillEnterForeground()
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
         JetkvmAppDidBecomeActive()
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
-        hostController.suspendGame()
         JetkvmAppWillResignActive()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        guard Self.reconnectsAfterBackground else { return }
-        JetkvmAppDidEnterBackground()
+        hostController.suspendGame()
+        JetkvmAppDidEnterBackground(Self.reconnectsAfterBackground)
     }
 }

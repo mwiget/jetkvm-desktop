@@ -514,7 +514,10 @@ func (a *App) Update() error {
 	a.syncChromeVisibility()
 	a.syncStats()
 	a.syncSettingsInput()
-	nowFocused := ebiten.IsFocused()
+	// On mobile ebiten.IsFocused only follows the shell suspending the game,
+	// which it does out of sight; an app on screen but not taking input is
+	// reported by the shell separately.
+	nowFocused := ebiten.IsFocused() && !hostInactive.Load()
 	if a.focused && !nowFocused {
 		a.releaseAllKeys(true)
 		if a.relative {

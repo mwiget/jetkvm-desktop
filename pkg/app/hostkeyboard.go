@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/video"
 )
@@ -21,6 +22,7 @@ var (
 	hostKeyboardDismissed atomic.Bool
 	hostBackgroundedAt    atomic.Int64 // Unix nanoseconds; 0 while in the foreground.
 	hostForegrounded      atomic.Bool
+	hostInactive          atomic.Bool // input goes to another app
 )
 
 // HostTextInputActive reports whether the on-screen keyboard should be shown.
@@ -34,24 +36,48 @@ func HostTextInputDismissed() {
 	hostKeyboardDismissed.Store(true)
 }
 
-// HostAppWillResignActive records that the app's window is no longer on top.
-// The shell stops the game loop at the same time, so nothing will be drawn
-// until it comes back and the incoming video need not be turned into frames.
-// It pauses the video here rather than through the update loop, which by then
-// is no longer running.
+// HostAppWillResignActive records that input now goes to another app. On iPadOS
+// the app can stay on screen meanwhile, beside that app in Split View or Stage
+// Manager, so it goes on drawing; but it is no longer the one being typed into,
+// so keys held down are let go and input stops, as when a desktop window loses
+// focus.
 func HostAppWillResignActive() {
-	video.SetPaused(true)
+	logLifecycle("scene will resign active")
+	hostInactive.Store(true)
 }
 
-// HostAppDidEnterBackground records when the app moved to the background.
-func HostAppDidEnterBackground() {
-	hostBackgroundedAt.Store(time.Now().UnixNano())
-}
-
-// HostAppDidBecomeActive records that the app returned to the foreground.
+// HostAppDidBecomeActive records that input comes to the app again.
 func HostAppDidBecomeActive() {
+	logLifecycle("scene did become active")
+	hostInactive.Store(false)
+}
+
+// HostAppDidEnterBackground records that the app is out of sight. The shell
+// stops the game loop at the same time, so nothing is drawn until it comes back
+// and the incoming video need not be turned into frames; that is paused here
+// rather than through the update loop, which by then is no longer running.
+// With reconnectOnReturn it also notes when, so that a return after the system
+// has had time to suspend the app replaces the session straight away.
+func HostAppDidEnterBackground(reconnectOnReturn bool) {
+	logLifecycle("scene did enter background")
+	video.SetPaused(true)
+	if reconnectOnReturn {
+		hostBackgroundedAt.Store(time.Now().UnixNano())
+	}
+}
+
+// HostAppWillEnterForeground records that the app is coming back into view.
+func HostAppWillEnterForeground() {
+	logLifecycle("scene will enter foreground")
 	video.SetPaused(false)
 	hostForegrounded.Store(true)
+}
+
+// logLifecycle notes a scene transition, so the device log shows what the app
+// was doing around it.
+func logLifecycle(msg string) {
+	log := logging.Subsystem("app")
+	log.Debug().Msg(msg)
 }
 
 // syncHostState publishes keyboard state for the native shell and handles
