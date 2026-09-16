@@ -86,6 +86,7 @@ type Controller struct {
 	runParent context.Context
 	cancelRun context.CancelFunc
 	running   bool
+	retryNow  chan struct{}
 }
 
 const (
@@ -176,7 +177,8 @@ func New(cfg Config) *Controller {
 		cfg.ReconnectMax = 10 * time.Second
 	}
 	return &Controller{
-		cfg: cfg,
+		cfg:      cfg,
+		retryNow: make(chan struct{}, 1),
 		snapshot: Snapshot{
 			Phase:   PhaseIdle,
 			Status:  "idle",
@@ -241,7 +243,7 @@ func (c *Controller) LatestFrameInfo() (image.Image, time.Time) {
 
 // staleProbeTimeout is how long the device gets to answer after the app comes
 // back into view before its session is treated as gone.
-const staleProbeTimeout = 2 * time.Second
+const staleProbeTimeout = time.Second
 
 // ReconnectIfStale replaces a session that did not survive out of sight. The
 // system closes a hidden app's sockets after about half a minute, and until
@@ -300,7 +302,10 @@ func (c *Controller) ReconnectNow() {
 	}
 	if shouldStart {
 		go c.run(parent)
+		return
 	}
+	// A loop that is already retrying may be deep into its backoff.
+	c.RetryNow()
 }
 
 func (c *Controller) SetPassword(password string) {
@@ -1932,8 +1937,13 @@ func (c *Controller) run(ctx context.Context) {
 			if !c.cfg.Reconnect || ctx.Err() != nil || isAuthError(err) {
 				return
 			}
-			if !sleepWithContext(ctx, backoff(attempt, c.cfg.ReconnectBase, c.cfg.ReconnectMax)) {
+			woken, ok := c.waitBeforeRetry(ctx, backoff(attempt, c.cfg.ReconnectBase, c.cfg.ReconnectMax))
+			if !ok {
 				return
+			}
+			if woken {
+				attempt = 0
+				continue
 			}
 			attempt++
 			continue
@@ -1947,8 +1957,13 @@ func (c *Controller) run(ctx context.Context) {
 			if !c.cfg.Reconnect || ctx.Err() != nil {
 				return
 			}
-			if !sleepWithContext(ctx, backoff(attempt, c.cfg.ReconnectBase, c.cfg.ReconnectMax)) {
+			woken, ok := c.waitBeforeRetry(ctx, backoff(attempt, c.cfg.ReconnectBase, c.cfg.ReconnectMax))
+			if !ok {
 				return
+			}
+			if woken {
+				attempt = 0
+				continue
 			}
 			attempt++
 			continue
@@ -1982,8 +1997,16 @@ func (c *Controller) run(ctx context.Context) {
 		}
 
 		_ = cl.Close()
-		if !c.cfg.Reconnect || !sleepWithContext(ctx, backoff(attempt, c.cfg.ReconnectBase, c.cfg.ReconnectMax)) {
+		if !c.cfg.Reconnect {
 			return
+		}
+		woken, ok := c.waitBeforeRetry(ctx, backoff(attempt, c.cfg.ReconnectBase, c.cfg.ReconnectMax))
+		if !ok {
+			return
+		}
+		if woken {
+			attempt = 0
+			continue
 		}
 		attempt++
 	}
@@ -2282,14 +2305,30 @@ func backoff(attempt int, base, max time.Duration) time.Duration {
 	return d
 }
 
-func sleepWithContext(ctx context.Context, d time.Duration) bool {
+// waitBeforeRetry waits out the backoff before the next connection attempt. It
+// reports whether to carry on, and whether the wait was cut short -- a caller
+// told to try again now starts over from the shortest backoff, because the
+// reason the last attempts failed has probably just gone away.
+func (c *Controller) waitBeforeRetry(ctx context.Context, d time.Duration) (woken, ok bool) {
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
-		return false
+		return false, false
+	case <-c.retryNow:
+		return true, true
 	case <-timer.C:
-		return true
+		return false, true
+	}
+}
+
+// RetryNow cuts short the wait before the next connection attempt. Backoff
+// grows to ReconnectMax, so without this a session found dead when the window
+// comes back sits out up to that long before anything is tried.
+func (c *Controller) RetryNow() {
+	select {
+	case c.retryNow <- struct{}{}:
+	default:
 	}
 }
 

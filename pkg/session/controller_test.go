@@ -663,3 +663,35 @@ func waitForFrame(t *testing.T, controller *Controller, timeout time.Duration) {
 	}
 	t.Fatal("timed out waiting for first video frame")
 }
+
+func TestWaitBeforeRetryWokenByRetryNow(t *testing.T) {
+	c := New(Config{BaseURL: "http://127.0.0.1:1"})
+
+	// Without a nudge the wait runs its course and the caller backs off further.
+	start := time.Now()
+	woken, ok := c.waitBeforeRetry(context.Background(), 20*time.Millisecond)
+	if woken || !ok {
+		t.Fatalf("waitBeforeRetry() = (%t, %t), want (false, true)", woken, ok)
+	}
+	if elapsed := time.Since(start); elapsed < 20*time.Millisecond {
+		t.Fatalf("returned after %s, want at least 20ms", elapsed)
+	}
+
+	// RetryNow cuts a long backoff short rather than sitting it out.
+	c.RetryNow()
+	start = time.Now()
+	woken, ok = c.waitBeforeRetry(context.Background(), time.Minute)
+	if !woken || !ok {
+		t.Fatalf("waitBeforeRetry() after RetryNow = (%t, %t), want (true, true)", woken, ok)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("waited %s after RetryNow, want it cut short", elapsed)
+	}
+
+	// A cancelled context stops the loop instead.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if woken, ok := c.waitBeforeRetry(ctx, time.Minute); woken || ok {
+		t.Fatalf("waitBeforeRetry() on cancelled context = (%t, %t), want (false, false)", woken, ok)
+	}
+}
