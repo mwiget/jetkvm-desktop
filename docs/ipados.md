@@ -57,6 +57,21 @@ On the Mac the Go log is `tmp/jetkvm.log` in the app's container under
 `~/Library/Containers/<UUID>/Data` (the container is named by a UUID, not the
 bundle identifier).
 
+macOS backgrounds the scene as soon as another app comes to the front, even
+though the window stays visible and, unlike iPadOS, the process keeps running
+with its WebRTC session up. Reconnecting on the way back would throw away a
+live session, so `SceneDelegate` reports the background to the Go app only when
+`ProcessInfo.processInfo.isiOSAppOnMac` is false; a connection that really is
+lost is still picked up by the session controller's own reconnect.
+
+Resigning active does stop the game loop, and with it `video.SetPaused` stops
+copying decoded frames into Go memory, which is most of what an idle background
+app was costing. VideoToolbox keeps decoding, because its reference frames have
+to stay current for the picture to be right afterwards, and it holds the last
+one: becoming active again publishes that through `Controller.RefreshVideo`, so
+a screen that changed and then went static is on screen immediately instead of
+waiting for the device to send something new.
+
 ## Running
 
 - The launcher discovers JetKVM devices on the local network. iPadOS asks for

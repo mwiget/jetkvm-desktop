@@ -129,6 +129,10 @@ static OSStatus vt_decode(vt_decoder *d, const uint8_t *data, size_t len, int *g
 	return noErr;
 }
 
+static int vt_has_frame(vt_decoder *d) {
+	return d->frame != NULL;
+}
+
 static void vt_frame_size(vt_decoder *d, int *width, int *height) {
 	*width = (int)CVPixelBufferGetWidth(d->frame);
 	*height = (int)CVPixelBufferGetHeight(d->frame);
@@ -251,17 +255,39 @@ func (v *videoToolboxDecoder) Decode(data []byte) (*image.YCbCr, error) {
 	if status != 0 {
 		return nil, fmt.Errorf("videotoolbox: decode: OSStatus %d (NAL types %v, parameter sets changed: %t)", status, types, paramsChanged)
 	}
-	if !gotFrame {
+	if !gotFrame || paused.Load() {
+		// VideoToolbox holds on to the decoded picture, so a hidden window can
+		// skip the copy into Go memory -- the bulk of the per-frame cost --
+		// and still get the current picture from LatestFrame when it returns.
 		return nil, nil
 	}
+	return v.copyFrame(), nil
+}
 
+// LatestFrame copies the picture the decoder is holding, or returns nil when it
+// has not decoded one yet.
+func (v *videoToolboxDecoder) LatestFrame() (*image.YCbCr, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if v.d == nil {
+		return nil, errors.New("videotoolbox: decoder closed")
+	}
+	if C.vt_has_frame(v.d) == 0 {
+		return nil, nil
+	}
+	return v.copyFrame(), nil
+}
+
+// copyFrame copies the held picture into a new image. The caller holds v.mu and
+// has checked that there is a frame.
+func (v *videoToolboxDecoder) copyFrame() *image.YCbCr {
 	var width, height C.int
 	C.vt_frame_size(v.d, &width, &height)
 	img := image.NewYCbCr(image.Rect(0, 0, int(width), int(height)), image.YCbCrSubsampleRatio420)
 	C.vt_copy_frame(v.d,
 		(*C.uint8_t)(unsafe.Pointer(&img.Y[0])), C.int(img.YStride),
 		(*C.uint8_t)(unsafe.Pointer(&img.Cb[0])), (*C.uint8_t)(unsafe.Pointer(&img.Cr[0])), C.int(img.CStride))
-	return img, nil
+	return img
 }
 
 // updateParameterSets reconfigures the decoder when new SPS or PPS units

@@ -116,6 +116,9 @@ func TextInputActive() bool { return app.HostTextInputActive() }
 // TextInputDismissed reports that the user hid the on-screen keyboard.
 func TextInputDismissed() { app.HostTextInputDismissed() }
 
+// AppWillResignActive reports that the scene stopped being the active one.
+func AppWillResignActive() { app.HostAppWillResignActive() }
+
 // AppDidEnterBackground reports that the scene moved to the background.
 func AppDidEnterBackground() { app.HostAppDidEnterBackground() }
 

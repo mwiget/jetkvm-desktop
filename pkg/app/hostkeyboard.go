@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/video"
 )
 
 // Native shells show an on-screen keyboard while the app wants typing and tell
@@ -33,6 +34,15 @@ func HostTextInputDismissed() {
 	hostKeyboardDismissed.Store(true)
 }
 
+// HostAppWillResignActive records that the app's window is no longer on top.
+// The shell stops the game loop at the same time, so nothing will be drawn
+// until it comes back and the incoming video need not be turned into frames.
+// It pauses the video here rather than through the update loop, which by then
+// is no longer running.
+func HostAppWillResignActive() {
+	video.SetPaused(true)
+}
+
 // HostAppDidEnterBackground records when the app moved to the background.
 func HostAppDidEnterBackground() {
 	hostBackgroundedAt.Store(time.Now().UnixNano())
@@ -40,6 +50,7 @@ func HostAppDidEnterBackground() {
 
 // HostAppDidBecomeActive records that the app returned to the foreground.
 func HostAppDidBecomeActive() {
+	video.SetPaused(false)
 	hostForegrounded.Store(true)
 }
 
@@ -57,8 +68,13 @@ func (a *App) syncHostState() {
 
 	if hostForegrounded.CompareAndSwap(true, false) {
 		backgroundedAt := hostBackgroundedAt.Swap(0)
-		if backgroundedAt != 0 && time.Since(time.Unix(0, backgroundedAt)) >= hostReconnectAfterBackground {
+		switch {
+		case backgroundedAt != 0 && time.Since(time.Unix(0, backgroundedAt)) >= hostReconnectAfterBackground:
 			a.reconnectAfterBackground()
+		case a.ctrl != nil:
+			// The session is still live; the window just has no picture of
+			// what the screen did while it was hidden.
+			a.ctrl.RefreshVideo()
 		}
 	}
 }

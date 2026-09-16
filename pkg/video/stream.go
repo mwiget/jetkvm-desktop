@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtp/codecs"
@@ -17,6 +18,25 @@ import (
 )
 
 const decodeStatsInterval = 5 * time.Second
+
+// paused stops turning the incoming video into images while the app's window is
+// hidden. Decoding itself carries on, because the decoder's reference frames
+// have to stay current for the picture to be right when the window comes back;
+// what is skipped is copying every frame into Go memory for a window that draws
+// nothing. It is process-wide because it describes the window rather than one
+// stream, so it also applies to a stream that reconnects while still hidden.
+var paused atomic.Bool
+
+// SetPaused hides or shows the app's window. Pair it with Stream.Refresh on the
+// way back, to put the picture the screen changed to while hidden on screen.
+func SetPaused(hidden bool) {
+	paused.Store(hidden)
+}
+
+// frameHolder is implemented by decoders that keep the last decoded picture.
+type frameHolder interface {
+	LatestFrame() (*image.YCbCr, error)
+}
 
 // h264Decoder turns Annex B access units into frames. The implementation is
 // platform specific; see codec_openh264.go and codec_ios.go.
@@ -37,6 +57,7 @@ type Stream struct {
 	frameCh    chan Frame
 	closeOnce  sync.Once
 	cancelFunc context.CancelFunc
+	decoder    h264Decoder
 	onClose    func() error
 }
 
@@ -77,6 +98,21 @@ func (s *Stream) Frames() <-chan Frame {
 	return s.frameCh
 }
 
+// Refresh publishes the picture the decoder is holding. Nothing was published
+// while the window was hidden, and a static screen sends nothing more, so
+// without this the window would come back showing what it last drew.
+func (s *Stream) Refresh() {
+	holder, ok := s.decoder.(frameHolder)
+	if !ok {
+		return
+	}
+	img, err := holder.LatestFrame()
+	if err != nil || img == nil {
+		return
+	}
+	s.publish(Frame{Image: img, At: time.Now()})
+}
+
 func (s *Stream) Close() {
 	s.closeOnce.Do(func() {
 		if s.cancelFunc != nil {
@@ -102,6 +138,7 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 		cancel()
 		return nil, err
 	}
+	stream.decoder = decoder
 	stream.onClose = decoder.Close
 
 	go func() {
@@ -150,7 +187,8 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 						log.Debug().Err(err).Int("sample", samples).Msg("video decode error")
 					}
 					stream.setError(err)
-				case img == nil:
+				case img == nil || paused.Load():
+					// Nothing decoded, or a hidden window that draws nothing.
 					empty++
 				default:
 					frames++

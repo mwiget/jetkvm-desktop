@@ -3,6 +3,7 @@
 package video
 
 import (
+	"image"
 	"testing"
 
 	openh264 "github.com/Azunyan1111/openh264-go"
@@ -83,4 +84,69 @@ func meanAbsDiff(a, b []byte, strideA, strideB, width, height int) float64 {
 		}
 	}
 	return float64(total) / float64(width*height)
+}
+
+// TestVideoToolboxPausedKeepsLatestFrame checks what a hidden window relies on:
+// while paused the decoder produces no images, but it keeps decoding, so the
+// picture it hands back afterwards is the current one and not the one from
+// before the pause.
+func TestVideoToolboxPausedKeepsLatestFrame(t *testing.T) {
+	const width, height, frames = 320, 176, 20
+
+	params := openh264.NewEncoderParams()
+	params.Width = width
+	params.Height = height
+	params.BitRate = width * height * 4
+	params.MaxFrameRate = 30
+	params.UsageType = openh264.ScreenContentRealTime
+	params.IntraPeriod = 60
+	encoder, err := openh264.NewEncoder(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeEncoder(encoder)
+
+	decoder, err := newVideoToolboxDecoder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer decoder.Close()
+	defer SetPaused(false)
+
+	var last *image.YCbCr
+	for i := 0; i < frames; i++ {
+		if i == 0 {
+			_ = encoder.ForceKeyFrame()
+		}
+		// Hide the window halfway, after the decoder has a picture to hold on to.
+		SetPaused(i >= frames/2)
+		src := newPatternFrame(width, height, i)
+		payload, err := encoder.Encode(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(payload) == 0 {
+			continue
+		}
+		img, err := decoder.Decode(payload)
+		if err != nil {
+			t.Fatalf("frame %d: %v", i, err)
+		}
+		if paused.Load() && img != nil {
+			t.Fatalf("frame %d: decoded an image while paused", i)
+		}
+		last = src
+	}
+
+	// Coming back must show the last frame that arrived while hidden.
+	img, err := decoder.LatestFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img == nil {
+		t.Fatal("no frame held after pause")
+	}
+	if diff := meanAbsDiff(last.Y, img.Y, last.YStride, img.YStride, width, height); diff > 8 {
+		t.Fatalf("held frame is not the last one decoded: mean luma difference %.2f", diff)
+	}
 }

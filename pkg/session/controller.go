@@ -239,6 +239,21 @@ func (c *Controller) LatestFrameInfo() (image.Image, time.Time) {
 	return current.LatestFrameInfo()
 }
 
+// RefreshVideo publishes the current picture again. A window that was hidden
+// drew nothing while the screen changed, and a screen that has gone static
+// sends no more video, so it needs asking for what it already has.
+func (c *Controller) RefreshVideo() {
+	c.mu.RLock()
+	current := c.current
+	c.mu.RUnlock()
+	if current == nil {
+		return
+	}
+	if stream := current.VideoStream(); stream != nil {
+		stream.Refresh()
+	}
+}
+
 func (c *Controller) ReconnectNow() {
 	c.mu.Lock()
 	current := c.current
