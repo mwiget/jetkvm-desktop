@@ -55,6 +55,7 @@ func main() {
 	logLevel := ""
 	passwordFromStdin := false
 	passwordEnv := ""
+	fullscreen := false
 
 	rootCmd := &cobra.Command{
 		Use:   "jetkvm-desktop [base-url-or-host]",
@@ -89,12 +90,14 @@ func main() {
 			ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 			ebiten.SetTPS(ebiten.SyncWithFPS)
 			ebiten.SetWindowTitle("jetkvm-desktop")
+			ebiten.SetFullscreen(fullscreen)
 			return ebiten.RunGame(clientApp)
 		},
 	}
 	rootCmd.Flags().BoolVar(&passwordFromStdin, "password-stdin", false, "Read password for local auth mode from stdin")
 	rootCmd.Flags().StringVar(&passwordEnv, "password-env", "", fmt.Sprintf("Read password for local auth mode from the named environment variable (default fallback: %s)", defaultPasswordEnv))
 	rootCmd.Flags().StringVar(&logLevel, "log-level", "", fmt.Sprintf("Log level: error, warn, info, debug, trace (default: error; env: JETKVM_DESKTOP_LOG_LEVEL; experimental USB network UI env: %s)", experimentalUSBNetworkEnv))
+	rootCmd.Flags().BoolVar(&fullscreen, "fullscreen", false, "Start in fullscreen mode")
 	rootCmd.Flags().DurationVar(&cfg.RPCTimeout, "rpc-timeout", 5*time.Second, "Timeout for JSON-RPC requests")
 
 	if err := rootCmd.Execute(); err != nil {
