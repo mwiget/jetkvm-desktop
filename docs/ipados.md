@@ -58,11 +58,16 @@ On the Mac the Go log is `tmp/jetkvm.log` in the app's container under
 bundle identifier).
 
 macOS backgrounds the scene as soon as another app comes to the front, even
-though the window stays visible and, unlike iPadOS, the process keeps running
-with its WebRTC session up. Reconnecting on the way back would throw away a
-live session, so `SceneDelegate` reports the background to the Go app only when
-`ProcessInfo.processInfo.isiOSAppOnMac` is false; a connection that really is
-lost is still picked up by the session controller's own reconnect.
+though the window stays visible. The process keeps running, and so does its
+WebRTC session -- but only for about three quarters of a minute, after which
+the system closes the app's sockets much as iPadOS would. Reconnecting on the
+way back, which is what iPadOS needs, therefore throws away a session that is
+usually still good: switching to another window for a moment is the common
+case. `SceneDelegate` reports the background to the Go app only when
+`ProcessInfo.processInfo.isiOSAppOnMac` is false. Instead, when the window
+comes back, `Controller.ReconnectIfStale` pings the device and reconnects only
+if the session really is gone -- nothing here can tell a dead session from a
+quiet one without asking.
 
 Resigning active does stop the game loop, and with it `video.SetPaused` stops
 copying decoded frames into Go memory, which is most of what an idle background

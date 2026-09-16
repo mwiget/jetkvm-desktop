@@ -239,6 +239,38 @@ func (c *Controller) LatestFrameInfo() (image.Image, time.Time) {
 	return current.LatestFrameInfo()
 }
 
+// staleProbeTimeout is how long the device gets to answer after the app comes
+// back into view before its session is treated as gone.
+const staleProbeTimeout = 2 * time.Second
+
+// ReconnectIfStale replaces a session that did not survive out of sight. The
+// system closes a hidden app's sockets after about half a minute, and until
+// something is sent nothing here can tell that from a session that is merely
+// quiet, so ask the device and wait a moment for an answer.
+func (c *Controller) ReconnectIfStale() {
+	c.mu.RLock()
+	current := c.current
+	c.mu.RUnlock()
+	if current == nil || c.Snapshot().Phase != PhaseConnected {
+		// Not connected: either the controller is already retrying, or it has
+		// stopped for a reason a reconnect here would only fight.
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), staleProbeTimeout)
+		defer cancel()
+		if _, err := current.Ping(ctx); err == nil {
+			return
+		}
+		c.mu.RLock()
+		unchanged := c.current == current
+		c.mu.RUnlock()
+		if unchanged {
+			c.ReconnectNow()
+		}
+	}()
+}
+
 // RefreshVideo publishes the current picture again. A window that was hidden
 // drew nothing while the screen changed, and a screen that has gone static
 // sends no more video, so it needs asking for what it already has.

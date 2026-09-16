@@ -72,9 +72,12 @@ func (a *App) syncHostState() {
 		case backgroundedAt != 0 && time.Since(time.Unix(0, backgroundedAt)) >= hostReconnectAfterBackground:
 			a.reconnectAfterBackground()
 		case a.ctrl != nil:
-			// The session is still live; the window just has no picture of
-			// what the screen did while it was hidden.
+			// The session usually survives a short spell out of sight, so show
+			// what the screen did while the window was hidden rather than
+			// reconnecting over it. It does not survive a long one, and the
+			// controller cannot always tell, so check that too.
 			a.ctrl.RefreshVideo()
+			a.ctrl.ReconnectIfStale()
 		}
 	}
 }
