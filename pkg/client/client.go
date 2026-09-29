@@ -180,8 +180,29 @@ func (c *Client) SignalingMode() SignalingMode {
 	return c.signalMode
 }
 
+// connectTimeout bounds the handshake with the device: logging in, signaling
+// and waiting for its answer. Without it a device that stops answering midway,
+// for instance because the network went away while the iPad was locked, left
+// the session connecting for good.
+const connectTimeout = 20 * time.Second
+
 func (c *Client) Connect(ctx context.Context) error {
-	if err := c.authClient.Login(ctx, c.cfg.BaseURL, c.cfg.Password); err != nil {
+	// ctx outlives the handshake, since the video track keeps it; the handshake
+	// gets its own, which Close also ends.
+	handshakeCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+	go func() {
+		select {
+		case <-c.closeCh:
+			cancel()
+		case <-handshakeCtx.Done():
+		}
+	}()
+	return c.connect(ctx, handshakeCtx)
+}
+
+func (c *Client) connect(ctx, handshakeCtx context.Context) error {
+	if err := c.authClient.Login(handshakeCtx, c.cfg.BaseURL, c.cfg.Password); err != nil {
 		c.emitLifecycle(LifecycleEvent{Type: "connect_error", Err: err.Error()})
 		return err
 	}
@@ -229,7 +250,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	answerCh := make(chan webrtc.SessionDescription, 1)
 	wsErrCh := make(chan error, 1)
-	signalConn, useLegacySignaling, err := c.openSignaling(ctx, pc, answerCh, wsErrCh)
+	signalConn, useLegacySignaling, err := c.openSignaling(handshakeCtx, pc, answerCh, wsErrCh)
 	if err != nil {
 		return err
 	}
@@ -252,13 +273,17 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 
 	if useLegacySignaling {
-		<-webrtc.GatheringCompletePromise(pc)
+		select {
+		case <-handshakeCtx.Done():
+			return handshakeCtx.Err()
+		case <-webrtc.GatheringCompletePromise(pc):
+		}
 
 		rawOffer, err := json.Marshal(pc.LocalDescription())
 		if err != nil {
 			return err
 		}
-		resp, err := signaling.Exchange(ctx, c.authClient.HTTPClient(), c.cfg.BaseURL, signaling.ExchangeRequest{
+		resp, err := signaling.Exchange(handshakeCtx, c.authClient.HTTPClient(), c.cfg.BaseURL, signaling.ExchangeRequest{
 			SD: signaling.EncodeSDP(rawOffer),
 		})
 		if err != nil {
@@ -286,8 +311,8 @@ func (c *Client) Connect(ctx context.Context) error {
 		}
 
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-handshakeCtx.Done():
+			return handshakeCtx.Err()
 		case err := <-wsErrCh:
 			return err
 		case answer := <-answerCh:
@@ -828,7 +853,11 @@ func (c *Client) openSignaling(ctx context.Context, pc *webrtc.PeerConnection, a
 		return nil, true, nil
 	}
 
+	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	_, data, err := conn.ReadMessage()
+	if !stopClose() {
+		return nil, false, ctx.Err()
+	}
 	if err != nil {
 		_ = conn.Close()
 		return nil, true, nil
