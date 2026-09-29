@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -208,11 +209,12 @@ func (c *Controller) Stop() {
 	}
 	c.running = false
 	c.runParent = nil
-	if c.current != nil {
-		_ = c.current.Close()
-		c.current = nil
-	}
+	current := c.current
+	c.current = nil
 	c.mu.Unlock()
+	if current != nil {
+		go closeClient(current)
+	}
 }
 
 func (c *Controller) Snapshot() Snapshot {
@@ -298,7 +300,9 @@ func (c *Controller) ReconnectNow() {
 	}
 	c.mu.Unlock()
 	if current != nil {
-		_ = current.Close()
+		// This runs on the UI's goroutine, which must not wait on a close
+		// that never returns.
+		go closeClient(current)
 	}
 	if shouldStart {
 		go c.run(parent)
@@ -1996,7 +2000,7 @@ func (c *Controller) run(ctx context.Context) {
 			})
 		}
 
-		_ = cl.Close()
+		closeClient(cl)
 		if !c.cfg.Reconnect {
 			return
 		}
@@ -2229,11 +2233,38 @@ func (c *Controller) setState(update func(*Snapshot)) {
 
 func (c *Controller) setClient(cl *client.Client) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.current != nil {
-		_ = c.current.Close()
-	}
+	previous := c.current
 	c.current = cl
+	c.mu.Unlock()
+	if previous != nil && previous != cl {
+		// Usually closed already by the run loop, possibly still stalled.
+		go closeClient(previous)
+	}
+}
+
+// closeTimeout is how long a client gets to close before the controller moves
+// on without it.
+const closeTimeout = 3 * time.Second
+
+// closeClient closes cl, but waits no longer than closeTimeout. Closing the
+// peer connection or the video decoder can block for good -- after the iPad was
+// locked the session stayed on "connection lost, retrying" -- and a new client
+// does not need the old one gone. A close that stalls is logged with every
+// goroutine's stack, to show what it is stuck on.
+func closeClient(cl *client.Client) {
+	done := make(chan struct{})
+	go func() {
+		_ = cl.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(closeTimeout):
+		buf := make([]byte, 1<<20)
+		buf = buf[:runtime.Stack(buf, true)]
+		log := logging.Subsystem("session")
+		log.Error().Dur("timeout", closeTimeout).Str("stacks", string(buf)).Msg("client close stalled, reconnecting without it")
+	}
 }
 
 func (c *Controller) clientIfConnected() *client.Client {
