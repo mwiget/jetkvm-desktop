@@ -18,6 +18,28 @@ if ! command -v xcodegen >/dev/null; then
 fi
 
 mkdir -p ios/build
+
+# ios/ebiten-patch holds Ebitengine iOS files patched so that the render thread
+# no longer waits for the main thread, which deadlocked on iPadOS 27 (see the
+# files). They are for this exact version; re-check them on an upgrade. The
+# patched copy is only swapped in for this build, so go.mod is restored after.
+EBITEN_PATCHED_VERSION=v2.9.9
+if [[ "$EBITEN_VERSION" != "$EBITEN_PATCHED_VERSION" ]]; then
+  echo "ios/ebiten-patch is for Ebitengine $EBITEN_PATCHED_VERSION, not $EBITEN_VERSION" >&2
+  exit 1
+fi
+EBITEN_DIR="$(go list -m -f '{{.Dir}}' github.com/hajimehoshi/ebiten/v2)"
+rm -rf ios/build/ebiten
+cp -R "$EBITEN_DIR" ios/build/ebiten
+chmod -R u+w ios/build/ebiten
+cp ios/ebiten-patch/view_ios.go ios/build/ebiten/internal/graphicsdriver/metal/view_ios.go
+cp ios/ebiten-patch/ui_ios.go ios/build/ebiten/internal/ui/ui_ios.go
+
+cp go.mod ios/build/go.mod.orig
+cp go.sum ios/build/go.sum.orig
+trap 'cp ios/build/go.mod.orig go.mod; cp ios/build/go.sum.orig go.sum' EXIT
+go mod edit -replace=github.com/hajimehoshi/ebiten/v2=./ios/build/ebiten
+
 "$EBITENMOBILE" bind \
   -target ios \
   -iosversion 17.0 \
