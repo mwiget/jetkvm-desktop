@@ -15,6 +15,9 @@ final class HostViewController: UIViewController {
     override var childViewControllerForPointerLock: UIViewController? { game }
     override var childForHomeIndicatorAutoHidden: UIViewController? { game }
     override var childForScreenEdgesDeferringSystemGestures: UIViewController? { game }
+    // Keep the status bar off the top of the KVM picture. In fullscreen iPadOS
+    // then shows it, with the menu bar, only when the pointer reaches the top edge.
+    override var prefersStatusBarHidden: Bool { true }
 
     override func viewDidLoad() {
         super.viewDidLoad()
