@@ -13,6 +13,12 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media"
 )
 
+// Desktop decoders run on the CPU, so decoding is put off while the window
+// can't be seen; see deferDecodeWhileIdle in stream.go.
+func init() {
+	deferDecodeWhileIdle = true
+}
+
 func newH264Decoder() (h264Decoder, error) {
 	return openh264.NewDecoder(bytes.NewReader(nil))
 }

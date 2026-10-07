@@ -33,6 +33,54 @@ func SetPaused(hidden bool) {
 	paused.Store(hidden)
 }
 
+// deferDecodeWhileIdle is set by platforms that decode on the CPU, where
+// decoding video for a window nobody can see is most of what a connected client
+// costs. See windowIdle.
+var deferDecodeWhileIdle bool
+
+// maxDeferredBytes bounds the access units held back while the window is idle.
+// A device that sends no keyframes would otherwise grow the backlog forever, so
+// past this it is decoded and dropped, as if the window were showing.
+const maxDeferredBytes = 16 << 20
+
+// The game loop ticks at the display rate while its window is on screen, and
+// falls to about once a second when the compositor stops asking it to draw (for
+// a window on another workspace, say). drawTickLast is when it last ticked, and
+// drawTickFast when it last ticked soon after the previous tick.
+var drawTickLast, drawTickFast atomic.Int64
+
+const (
+	drawTickFastGap = 250 * time.Millisecond
+	drawIdleAfter   = 500 * time.Millisecond
+)
+
+// NoteDrawTick is called on every game loop tick that shows video.
+func NoteDrawTick() {
+	now := time.Now().UnixNano()
+	if prev := drawTickLast.Swap(now); prev != 0 && now-prev < int64(drawTickFastGap) {
+		drawTickFast.Store(now)
+	}
+}
+
+// windowIdle reports whether the game loop has stopped ticking at a drawing
+// rate. Until it has ticked fast once it is not idle, so a stream that nothing
+// draws (in tests, say) decodes as usual.
+func windowIdle(now time.Time) bool {
+	fast := drawTickFast.Load()
+	return fast != 0 && now.UnixNano()-fast > int64(drawIdleAfter)
+}
+
+// containsIDR reports whether an Annex B access unit holds an IDR slice, which
+// decoding can start from.
+func containsIDR(data []byte) bool {
+	for _, nal := range splitAnnexB(data) {
+		if nalType(nal) == nalTypeIDR {
+			return true
+		}
+	}
+	return false
+}
+
 // frameHolder is implemented by decoders that keep the last decoded picture.
 type frameHolder interface {
 	LatestFrame() (*image.YCbCr, error)
@@ -145,8 +193,32 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 		defer stream.Close()
 
 		log := logging.Subsystem("video")
-		var samples, frames, empty, failures int
+		var samples, frames, empty, failures, deferred, keyframes int
 		lastReport := time.Now()
+
+		// While the window is idle, access units wait here from the latest
+		// keyframe on instead of being decoded; decoding them once it shows
+		// again brings the picture up to date.
+		var backlog [][]byte
+		var backlogBytes int
+		decode := func(payload []byte) (*image.YCbCr, bool) {
+			img, err := decoder.Decode(payload)
+			if err != nil {
+				failures++
+				if prev := stream.Err(); prev == nil || prev.Error() != err.Error() {
+					log.Debug().Err(err).Int("sample", samples).Msg("video decode error")
+				}
+				stream.setError(err)
+				return nil, false
+			}
+			return img, true
+		}
+		drainBacklog := func() {
+			for _, payload := range backlog {
+				decode(payload)
+			}
+			backlog, backlogBytes = backlog[:0], 0
+		}
 
 		// Screen-content H.264 keyframes can span well over hundreds of RTP packets,
 		// especially on real 1080p devices. A too-small samplebuilder buffer drops
@@ -179,20 +251,34 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 					continue
 				}
 				samples++
-				img, err := decoder.Decode(payload)
-				switch {
-				case err != nil:
-					failures++
-					if prev := stream.Err(); prev == nil || prev.Error() != err.Error() {
-						log.Debug().Err(err).Int("sample", samples).Msg("video decode error")
+				idr := containsIDR(payload)
+				if idr {
+					keyframes++
+				}
+				if deferDecodeWhileIdle && windowIdle(time.Now()) {
+					if idr {
+						backlog, backlogBytes = backlog[:0], 0
 					}
-					stream.setError(err)
-				case img == nil || paused.Load():
-					// Nothing decoded, or a hidden window that draws nothing.
-					empty++
-				default:
-					frames++
-					stream.publish(Frame{Image: img, At: time.Now()})
+					backlog = append(backlog, payload)
+					backlogBytes += len(payload)
+					deferred++
+					if backlogBytes > maxDeferredBytes {
+						drainBacklog()
+					}
+				} else {
+					if len(backlog) > 0 {
+						drainBacklog()
+					}
+					img, ok := decode(payload)
+					switch {
+					case !ok:
+					case img == nil || paused.Load():
+						// Nothing decoded, or a hidden window that draws nothing.
+						empty++
+					default:
+						frames++
+						stream.publish(Frame{Image: img, At: time.Now()})
+					}
 				}
 				if now := time.Now(); now.Sub(lastReport) >= decodeStatsInterval {
 					log.Debug().
@@ -200,6 +286,8 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 						Int("frames", frames).
 						Int("empty", empty).
 						Int("errors", failures).
+						Int("deferred", deferred).
+						Int("keyframes", keyframes).
 						AnErr("last_error", stream.Err()).
 						Msg("video decode stats")
 					lastReport = now

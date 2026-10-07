@@ -26,6 +26,7 @@ import (
 	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/ui"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/video"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/virtualmedia"
 )
 
@@ -599,6 +600,7 @@ func shouldDismissOverlayOnOutsidePress(kind string) bool {
 }
 
 func (a *App) syncVideoFrame() {
+	video.NoteDrawTick()
 	frame, at := a.ctrl.LatestFrameInfo()
 	if frame == nil || !at.After(a.lastFrameAt) {
 		return
