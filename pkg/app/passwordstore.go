@@ -8,12 +8,17 @@ import (
 )
 
 // devicePasswordStore persists device passwords keyed by base URL. iPadOS uses
-// the Keychain (passwordstore_ios.go); other platforms do not save passwords.
+// the Keychain (passwordstore_ios.go) and Linux the Secret Service
+// (passwordstore_linux.go); other platforms do not save passwords.
 type devicePasswordStore interface {
 	Load(baseURL string) (string, bool)
 	Save(baseURL, password string) error
 	Delete(baseURL string) error
 }
+
+// newPasswordStore opens the store App uses. Tests replace it, so that they
+// never touch the desktop's keyring.
+var newPasswordStore = platformPasswordStore
 
 // savedPasswords wraps the platform store and caches which devices have a
 // saved password, so the launcher can show it without a lookup every frame.

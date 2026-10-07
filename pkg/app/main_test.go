@@ -8,8 +8,10 @@ import (
 
 // TestMain keeps tests from reading or overwriting the real preferences file:
 // App.savePreferences writes to os.UserConfigDir, which derives from these
-// variables on macOS, Linux and Windows.
+// variables on macOS, Linux and Windows. Saved passwords likewise go to a fake
+// store rather than the desktop's keyring.
 func TestMain(m *testing.M) {
+	newPasswordStore = func() devicePasswordStore { return newFakePasswordStore() }
 	dir, err := os.MkdirTemp("", "jetkvm-app-test-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

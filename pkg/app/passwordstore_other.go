@@ -1,10 +1,10 @@
-//go:build !ios
+//go:build !ios && !linux
 
 package app
 
-// Desktop builds do not save device passwords. On macOS, Keychain items are
-// tied to the binary that created them, so every rebuild of an unsigned
-// desktop build would prompt for Keychain access.
+// macOS and Windows desktop builds do not save device passwords. On macOS,
+// Keychain items are tied to the binary that created them, so every rebuild of
+// an unsigned desktop build would prompt for Keychain access.
 type noPasswordStore struct{}
 
 func platformPasswordStore() devicePasswordStore {

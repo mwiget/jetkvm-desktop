@@ -444,7 +444,7 @@ func New(cfg Config) (*App, error) {
 		sectionLoadSeq:      make(map[settingsSection]uint64),
 		mediaView:           mediaViewHome,
 		mediaMode:           virtualmedia.ModeCDROM,
-		passwords:           newSavedPasswords(platformPasswordStore()),
+		passwords:           newSavedPasswords(newPasswordStore()),
 	}, nil
 }
 
