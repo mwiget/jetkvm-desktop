@@ -5,13 +5,26 @@ package video
 import (
 	"bytes"
 	"context"
+	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	openh264 "github.com/Azunyan1111/openh264-go"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
+
+	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
 )
+
+// decoderEnv picks the H.264 decoder: "openh264", "software" (FFmpeg without
+// the GPU) or, by default, the fastest one the build and machine offer.
+const decoderEnv = "JETKVM_DESKTOP_DECODER"
+
+// preferredDecoder opens a faster decoder than openh264 when the build has
+// one (see codec_ffmpeg.go). With hardware it may decode on the GPU. It also
+// returns a name for the log.
+var preferredDecoder func(hardware bool) (h264Decoder, string, error)
 
 // Desktop decoders run on the CPU, so decoding is put off while the window
 // can't be seen; see deferDecodeWhileIdle in stream.go.
@@ -20,6 +33,17 @@ func init() {
 }
 
 func newH264Decoder() (h264Decoder, error) {
+	log := logging.Subsystem("video")
+	choice := strings.ToLower(strings.TrimSpace(os.Getenv(decoderEnv)))
+	if preferredDecoder != nil && choice != "openh264" {
+		decoder, name, err := preferredDecoder(choice != "software")
+		if err == nil {
+			log.Info().Str("decoder", name).Msg("video decoder")
+			return decoder, nil
+		}
+		log.Warn().Err(err).Msg("falling back to openh264")
+	}
+	log.Info().Str("decoder", "openh264").Msg("video decoder")
 	return openh264.NewDecoder(bytes.NewReader(nil))
 }
 

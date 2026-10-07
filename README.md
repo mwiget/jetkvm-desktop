@@ -36,6 +36,8 @@ The experimental USB-network settings UI is disabled by default because current 
 
 To profile a running client, set `JETKVM_DESKTOP_PPROF` to a listen address (for example `127.0.0.1:6060`) and use `go tool pprof http://127.0.0.1:6060/debug/pprof/profile`.
 
+Video is decoded with openh264 by default. On Linux, building with `go build -tags ffmpeg ./cmd/jetkvm-desktop` links the system's FFmpeg libraries instead (the `libavcodec` development files must be installed), which decode on the GPU through VA-API where available and fall back to FFmpeg's software decoder. Set `JETKVM_DESKTOP_DECODER=openh264` or `software` to override the choice at runtime.
+
 ## Inside the App
 
 ![jetkvm-desktop settings](docs/settings.png)
