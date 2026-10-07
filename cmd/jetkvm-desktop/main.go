@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
@@ -19,6 +21,10 @@ import (
 
 const defaultPasswordEnv = "JETKVM_PASSWORD"
 const experimentalUSBNetworkEnv = "JETKVM_DESKTOP_ENABLE_EXPERIMENTAL_USB_NETWORK"
+
+// pprofEnv names a listen address (for example 127.0.0.1:6060) on which to serve
+// net/http/pprof, for profiling a running client.
+const pprofEnv = "JETKVM_DESKTOP_PPROF"
 
 func readPassword(r io.Reader) (string, error) {
 	data, err := io.ReadAll(r)
@@ -75,6 +81,11 @@ func main() {
 				return err
 			}
 			cfg.ExperimentalUSBNetwork = envEnabled(experimentalUSBNetworkEnv, os.Getenv)
+			if addr := os.Getenv(pprofEnv); addr != "" {
+				go func() {
+					log.Printf("pprof: %v", http.ListenAndServe(addr, nil))
+				}()
+			}
 
 			clientApp, err := app.New(cfg)
 			if err != nil {

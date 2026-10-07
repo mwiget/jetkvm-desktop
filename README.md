@@ -34,6 +34,8 @@ If the device requires a password, the app will ask for it.
 
 The experimental USB-network settings UI is disabled by default because current KVM targets do not support it yet. To expose it at runtime, set `JETKVM_DESKTOP_ENABLE_EXPERIMENTAL_USB_NETWORK=1`.
 
+To profile a running client, set `JETKVM_DESKTOP_PPROF` to a listen address (for example `127.0.0.1:6060`) and use `go tool pprof http://127.0.0.1:6060/debug/pprof/profile`.
+
 ## Inside the App
 
 ![jetkvm-desktop settings](docs/settings.png)

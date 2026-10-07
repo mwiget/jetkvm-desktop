@@ -44,6 +44,7 @@ type App struct {
 	mu                     sync.RWMutex
 	lastImg                *ebiten.Image
 	lastFrameAt            time.Time
+	yuv                    yuvConverter
 	keyboard               *input.Keyboard
 	hotkeys                hotkeys.Manager
 	allowDiscovery         bool
@@ -610,18 +611,19 @@ func (a *App) uploadVideoFrame(frame image.Image, at time.Time) {
 	if a.lastFrameAt.IsZero() {
 		a.logFirstVideoFrame()
 	}
-	rgba := frameToRGBA(frame)
-
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.lastImg == nil || a.lastImg.Bounds().Dx() != rgba.Bounds().Dx() || a.lastImg.Bounds().Dy() != rgba.Bounds().Dy() {
+	w, h := frame.Bounds().Dx(), frame.Bounds().Dy()
+	if a.lastImg == nil || a.lastImg.Bounds().Dx() != w || a.lastImg.Bounds().Dy() != h {
 		if a.lastImg != nil {
 			a.lastImg.Deallocate()
 		}
-		a.lastImg = ebiten.NewImage(rgba.Bounds().Dx(), rgba.Bounds().Dy())
+		a.lastImg = ebiten.NewImage(w, h)
 	}
-	a.lastImg.WritePixels(rgba.Pix)
+	if ycc, ok := frame.(*image.YCbCr); !ok || !a.yuv.canConvert(ycc) || !a.yuv.draw(a.lastImg, ycc) {
+		a.lastImg.WritePixels(frameToRGBA(frame).Pix)
+	}
 	a.lastFrameAt = at
 }
 
